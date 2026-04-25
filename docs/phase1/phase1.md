@@ -335,7 +335,7 @@ The model trains from the **access_logs table** in the database. Labels are auto
 | 10 | 0 | 5 | 0 | 5 | 1 | 1 | 2 | 0 | 0 | 1 |
 | 3 | 20 | 6 | 1 | 3 | 0 | 0 | 1 | 2 | 1 | 1 |
 
-**Note**: The system needs at least 30 records in access_logs to train. New users should generate multiple access attempts over time.
+**Note**: The system needs at least 100 access log records to train effectively with good accuracy. The seed data should include 20 users and 100+ access logs distributed across various times (day/night), locations (assigned/unassigned), and outcomes (granted/denied) to ensure the model learns diverse patterns.
 
 ### ML Model Prediction Examples (ML Predictions)
 
