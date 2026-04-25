@@ -3,7 +3,8 @@ import sys
 from src.database import DatabaseManager
 from src.events import EventDispatcher
 from src.controllers import AccessController, SecurityManager
-PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 DB_PATH = os.path.join(DATA_DIR, "access_control.db")
 
