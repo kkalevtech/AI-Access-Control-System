@@ -1,5 +1,7 @@
 # Phase 1: Analysis and Design
 
+**This document is a preliminary plan and is subject to change during implementation.**
+
 ## 1. Project Idea (Human Understandable Language)
 
 This project is an AI-powered security system that monitors and analyzes user access attempts to a building or facility. The system tracks who enters, when they enter, and where they go. Using artificial intelligence, it determines whether each access attempt is normal or suspicious based on patterns like:
