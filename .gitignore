@@ -217,6 +217,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# SQLite databases
+# SQLite databases (ignore runtime DBs)
 *.db
-!data/*.db
+# !data/*.db  # Uncomment if you have sample data to commit
