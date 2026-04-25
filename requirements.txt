@@ -1,0 +1,8 @@
+# Core dependencies (Phase 2)
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Phase 3 additional dependencies
+flask>=2.0.0
+scikit-learn>=1.0.0
+pandas>=1.5.0
