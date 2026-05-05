@@ -9,7 +9,7 @@ class DatabaseManager:
         self.connect()
 
     def connect(self):
-        self.connection = sqlite3.connect(self.db_path)
+        self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
 
     def init_db(self):
