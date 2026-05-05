@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Alerts{% endblock %}
+
+{% block content %}
+<h1>Alerts</h1>
+
+<form method="get" action="{{ url_for('alerts') }}" class="filter-form">
+    <label for="user_id">Filter by User ID:</label>
+    <input type="number" name="user_id" id="user_id" placeholder="Enter user ID">
+    <button type="submit" class="btn">Filter</button>
+    <a href="{{ url_for('alerts') }}" class="btn">Clear</a>
+</form>
+
+{% if alerts %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>User ID</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Created At</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for alert in alerts %}
+        <tr>
+            <td>{{ alert.id }}</td>
+            <td>{{ alert.user_id }}</td>
+            <td>{{ alert.alert_type }}</td>
+            <td>{{ alert.description }}</td>
+            <td>{{ alert.created_at }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No alerts found</p>
+{% endif %}
+{% endblock %}

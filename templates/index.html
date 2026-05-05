@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Home - AI Access Control{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Welcome to AI Access Control System</h1>
+    <p>Intelligent behavioral analysis for secure access management</p>
+</div>
+
+<div class="features">
+    <div class="feature-card">
+        <h3>AI-Powered Analysis</h3>
+        <p>Machine learning based behavior analysis to detect suspicious access patterns</p>
+    </div>
+    <div class="feature-card">
+        <h3>Real-time Monitoring</h3>
+        <p>Track access attempts and monitor user activity in real-time</p>
+    </div>
+    <div class="feature-card">
+        <h3>Detailed Logs</h3>
+        <p>Complete audit trail of all access attempts and system alerts</p>
+    </div>
+</div>
+
+<div class="quick-links">
+    <h2>Quick Links</h2>
+    <div class="link-buttons">
+        <a href="{{ url_for('dashboard') }}" class="btn">Dashboard</a>
+        <a href="{{ url_for('users') }}" class="btn">Manage Users</a>
+        <a href="{{ url_for('request_access') }}" class="btn">Request Access</a>
+    </div>
+</div>
+{% endblock %}

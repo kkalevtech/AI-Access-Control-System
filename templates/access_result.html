@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Access Result{% endblock %}
+
+{% block content %}
+<h1>Access Request Result</h1>
+
+<div class="result-card {% if result.granted %}granted{% else %}denied{% endif %}">
+    <h2>{{ 'Access Granted' if result.granted else 'Access Denied' }}</h2>
+</div>
+
+<div class="result-details">
+    <div class="detail-row">
+        <strong>User ID:</strong>
+        <span>{{ result.user_id }}</span>
+    </div>
+    <div class="detail-row">
+        <strong>Location:</strong>
+        <span>{{ result.location }}</span>
+    </div>
+    <div class="detail-row">
+        <strong>Timestamp:</strong>
+        <span>{{ result.timestamp }}</span>
+    </div>
+    {% if result.classification %}
+    <div class="detail-row">
+        <strong>Classification:</strong>
+        <span class="classification-{{ result.classification|lower }}">{{ result.classification }}</span>
+    </div>
+    <div class="detail-row">
+        <strong>Confidence:</strong>
+        <span>{{ "%.1f"|format(result.get('confidence_normal', 0)) }}% Normal, {{ "%.1f"|format(result.get('confidence_suspicious', 0)) }}% Suspicious</span>
+    </div>
+    {% endif %}
+    <div class="detail-row">
+        <strong>Reason:</strong>
+        <span>{{ result.reason }}</span>
+    </div>
+</div>
+
+<a href="{{ url_for('request_access') }}" class="btn">Request Another</a>
+<a href="{{ url_for('dashboard') }}" class="btn">Go to Dashboard</a>
+{% endblock %}

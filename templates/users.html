@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Users{% endblock %}
+
+{% block content %}
+<h1>Users</h1>
+
+{% if users %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Department</th>
+            <th>Access Level</th>
+            <th>Assigned Room</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.name }}</td>
+            <td>{{ user.department }}</td>
+            <td>{{ user.access_level }}</td>
+            <td>{{ user.assigned_room }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No users found</p>
+{% endif %}
+{% endblock %}

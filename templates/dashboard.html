@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>Total Users</h3>
+        <p class="stat-number">{{ total_users }}</p>
+    </div>
+    <div class="stat-card">
+        <h3>Total Access Logs</h3>
+        <p class="stat-number">{{ total_logs }}</p>
+    </div>
+    <div class="stat-card">
+        <h3>Total Alerts</h3>
+        <p class="stat-number">{{ total_alerts }}</p>
+    </div>
+</div>
+
+<div class="recent-section">
+    <h2>Recent Alerts</h2>
+    {% if recent_alerts %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>User ID</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Created At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alert in recent_alerts %}
+            <tr>
+                <td>{{ alert.id }}</td>
+                <td>{{ alert.user_id }}</td>
+                <td>{{ alert.alert_type }}</td>
+                <td>{{ alert.description }}</td>
+                <td>{{ alert.created_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No recent alerts</p>
+    {% endif %}
+</div>
+{% endblock %}
