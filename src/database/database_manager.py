@@ -236,3 +236,90 @@ class DatabaseManager:
     def close(self):
         if self.connection:
             self.connection.close()
+
+    def get_user_access_count(self, user_id):
+        cursor = self.connection.cursor()
+        cursor.execute('SELECT COUNT(*) as count FROM access_logs WHERE user_id = ?', (user_id,))
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
+    def get_user_access_count_by_status(self, user_id, status):
+        cursor = self.connection.cursor()
+        cursor.execute('SELECT COUNT(*) as count FROM access_logs WHERE user_id = ? AND status = ?', (user_id, status))
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
+    def get_location_access_count(self, location):
+        cursor = self.connection.cursor()
+        cursor.execute('SELECT COUNT(*) as count FROM access_logs WHERE location = ?', (location,))
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
+    def get_department_access_stats(self, department):
+        cursor = self.connection.cursor()
+        cursor.execute('''
+            SELECT COUNT(*) as total,
+                   SUM(CASE WHEN status = 'granted' THEN 1 ELSE 0 END) as granted,
+                   SUM(CASE WHEN status = 'denied' THEN 1 ELSE 0 END) as denied
+            FROM access_logs al
+            JOIN users u ON al.user_id = u.id
+            WHERE u.department = ?
+        ''', (department,))
+        row = cursor.fetchone()
+        return {
+            'total': row['total'] or 0,
+            'granted': row['granted'] or 0,
+            'denied': row['denied'] or 0
+        }
+
+    def get_access_logs_by_date_range(self, start_date, end_date):
+        cursor = self.connection.cursor()
+        cursor.execute(
+            'SELECT * FROM access_logs WHERE access_time >= ? AND access_time <= ?',
+            (start_date, end_date)
+        )
+        rows = cursor.fetchall()
+        return [
+            AccessLog(
+                id=row['id'],
+                user_id=row['user_id'],
+                access_time=row['access_time'],
+                location=row['location'],
+                status=row['status'],
+                attempts_count=row['attempts_count']
+            )
+            for row in rows
+        ]
+
+    def get_most_active_users(self, limit=10):
+        cursor = self.connection.cursor()
+        cursor.execute('''
+            SELECT user_id, COUNT(*) as access_count
+            FROM access_logs
+            GROUP BY user_id
+            ORDER BY access_count DESC
+            LIMIT ?
+        ''', (limit,))
+        rows = cursor.fetchall()
+        return [
+            {'user_id': row['user_id'], 'access_count': row['access_count']}
+            for row in rows
+        ]
+
+    def get_suspicious_users(self, days=7):
+        cursor = self.connection.cursor()
+        cursor.execute('''
+            SELECT al.user_id, u.name, COUNT(*) as denied_count
+            FROM access_logs al
+            JOIN users u ON al.user_id = u.id
+            WHERE al.status = 'denied'
+            AND datetime(al.access_time) >= datetime('now', ? || ' days')
+            GROUP BY al.user_id
+            HAVING denied_count >= 3
+            ORDER BY denied_count DESC
+        ''', (f'-{days}',))
+        rows = cursor.fetchall()
+        return [
+            {'user_id': row['user_id'], 'name': row['name'], 'denied_count': row['denied_count']}
+            for row in rows
+        ]
