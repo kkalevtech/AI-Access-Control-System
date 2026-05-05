@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from src.models import Alert
-from src.events import AlertEventArgs
+from src.events import AlertEventArgs, SuspiciousBehaviorEventArgs
 
 
 class SecurityManager:
@@ -57,15 +57,26 @@ class SecurityManager:
         }
 
     def on_suspicious_behavior_handler(self, event_args):
-        alert = Alert(
-            user_id=event_args.user_id,
-            alert_type='suspicious_behavior',
-            description=f"Suspicious behavior detected: {event_args.reason} (score: {event_args.score})",
-            created_at=event_args.timestamp
-        )
-        self.database.create_alert(alert)
-        if self.file_manager:
-            self.file_manager.write_log(f"Suspicious behavior: User {event_args.user_id} - {event_args.reason}")
+        if isinstance(event_args, SuspiciousBehaviorEventArgs):
+            alert = Alert(
+                user_id=event_args.user_id,
+                alert_type='suspicious_behavior',
+                description=f"Suspicious behavior detected: {event_args.reason} (score: {event_args.score})",
+                created_at=event_args.timestamp
+            )
+            self.database.create_alert(alert)
+            if self.file_manager:
+                self.file_manager.write_log(f"Suspicious behavior: User {event_args.user_id} - {event_args.reason}")
+        elif hasattr(event_args, 'user_id'):
+            alert = Alert(
+                user_id=event_args.user_id,
+                alert_type='suspicious_behavior',
+                description=f"Suspicious behavior detected: {getattr(event_args, 'reason', 'Unknown')}",
+                created_at=getattr(event_args, 'timestamp', datetime.now().isoformat())
+            )
+            self.database.create_alert(alert)
+            if self.file_manager:
+                self.file_manager.write_log(f"Suspicious behavior: User {event_args.user_id}")
 
     def on_access_denied_handler(self, event_args):
         self.log_denied_access(
