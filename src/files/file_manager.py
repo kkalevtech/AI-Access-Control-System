@@ -44,3 +44,46 @@ class FileManager:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(data)
+
+    def export_users_to_json(self, filepath, users):
+        data = [user.to_dict() for user in users]
+        self.write_json(filepath, data)
+
+    def export_access_logs_to_csv(self, filepath, logs):
+        if not logs:
+            return
+        fieldnames = ['id', 'user_id', 'access_time', 'location', 'status', 'attempts_count']
+        data = [log.to_dict() for log in logs]
+        self.write_csv(filepath, data, fieldnames)
+
+    def import_users_from_json(self, filepath):
+        data = self.read_json(filepath)
+        from src.models import User
+        return [User.from_dict(user_data) for user_data in data]
+
+    def import_access_logs_from_csv(self, filepath):
+        data = self.read_csv(filepath)
+        from src.models import AccessLog
+        return [AccessLog.from_dict(log_data) for log_data in data]
+
+    def export_alerts_to_json(self, filepath, alerts):
+        data = [alert.to_dict() for alert in alerts]
+        self.write_json(filepath, data)
+
+    def backup_database(self, db_manager, backup_path):
+        try:
+            import shutil
+            shutil.copy2(db_manager.db_path, backup_path)
+            return True
+        except Exception:
+            return False
+
+    def restore_database(self, db_manager, backup_path):
+        try:
+            import shutil
+            db_manager.close()
+            shutil.copy2(backup_path, db_manager.db_path)
+            db_manager.connect()
+            return True
+        except Exception:
+            return False
