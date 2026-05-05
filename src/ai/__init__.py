@@ -1,1 +1,3 @@
-# AI package
+from .analyzer import BehaviorAnalyzer
+
+__all__ = ['BehaviorAnalyzer']
