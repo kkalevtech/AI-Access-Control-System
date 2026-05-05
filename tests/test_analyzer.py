@@ -111,6 +111,20 @@ class TestExtractFeatures:
         features = analyzer.extract_features(1, datetime.now().isoformat(), "HR-201")
         assert features['is_assigned_room'] == 0
 
+    def test_nonexistent_user(self, analyzer, sample_users):
+        features = analyzer.extract_features(999, datetime.now().isoformat(), "IT-101")
+        assert features['is_assigned_room'] == 0
+        assert features['user_access_level'] == 1
+
+    def test_different_department(self, analyzer, sample_users):
+        features = analyzer.extract_features(1, datetime.now().isoformat(), "FIN-301")
+        assert features['is_same_department'] == 0
+
+    def test_weekend_access(self, analyzer, sample_users):
+        saturday = datetime(2024, 1, 6, 10, 0, 0)
+        features = analyzer.extract_features(1, saturday.isoformat(), "IT-101")
+        assert features['is_weekend'] == 1
+
 
 class TestTrainFromDatabase:
     def test_insufficient_data(self, analyzer, sample_users):
@@ -159,6 +173,25 @@ class TestSaveLoadModel:
             assert new_analyzer.is_trained is True
         finally:
             os.unlink(filepath)
+
+    def test_load_nonexistent_file(self, analyzer):
+        result = analyzer.load_model('nonexistent.pkl')
+        assert result is False
+
+    def test_save_to_invalid_path(self, analyzer, temp_db, sample_users):
+        now = datetime.now()
+        for i in range(35):
+            log = AccessLog(
+                user_id=1,
+                access_time=(now - timedelta(hours=i)).isoformat(),
+                location="IT-101",
+                status="granted"
+            )
+            temp_db.create_access_log(log)
+
+        analyzer.train_from_database()
+        result = analyzer.save_model('/invalid/path/model.pkl')
+        assert result is False
 
 
 class TestAnalyze:

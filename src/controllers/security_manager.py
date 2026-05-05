@@ -33,10 +33,18 @@ class SecurityManager:
         all_logs = self.database.get_user_access_logs(user_id)
         cutoff_time = datetime.now() - timedelta(minutes=time_window_minutes)
 
-        recent_denied = [
-            log for log in all_logs
-            if log.status == 'denied' and datetime.strptime(log.access_time, "%Y-%m-%d %H:%M:%S") > cutoff_time
-        ]
+        recent_denied = []
+        for log in all_logs:
+            try:
+                log_time_str = log.access_time.replace('Z', '+00:00')
+                if 'T' in log_time_str:
+                    log_time = datetime.fromisoformat(log_time_str)
+                else:
+                    log_time = datetime.strptime(log_time_str, "%Y-%m-%d %H:%M:%S")
+                if log.status == 'denied' and log_time > cutoff_time:
+                    recent_denied.append(log)
+            except (ValueError, AttributeError):
+                continue
 
         attempts_count = len(recent_denied)
         is_suspicious = attempts_count > 3

@@ -9,6 +9,7 @@ from src.database import DatabaseManager
 from src.events import EventDispatcher, AccessEventArgs, AlertEventArgs, SuspiciousBehaviorEventArgs
 from src.controllers import AccessController, SecurityManager
 from src.files import FileManager
+from src.models import User, AccessLog
 
 
 class TestAccessController:
@@ -48,6 +49,48 @@ class TestAccessController:
     def test_request_access_denied(self):
         result = self.controller.request_access(self.user_id, "Room 999")
         assert result['granted'] is False
+
+    def test_request_access_user_not_found(self):
+        result = self.controller.request_access(999, "Room 101")
+        assert result['granted'] is False
+        assert 'User not found' in result.get('reason', '')
+
+    def test_request_access_with_ai(self):
+        from src.ai.analyzer import BehaviorAnalyzer
+        now = datetime.now()
+        for i in range(35):
+            self.db.create_access_log(
+                type('Log', (), {
+                    'user_id': self.user_id,
+                    'access_time': (now - timedelta(hours=i)).isoformat(),
+                    'location': 'Room 101',
+                    'status': 'granted',
+                    'attempts_count': 1
+                })()
+            )
+
+        self.controller.analyzer.train_from_database()
+        result = self.controller.request_access(self.user_id, "Room 101", now.isoformat())
+        assert 'classification' in result
+        assert 'granted' in result
+
+    def test_request_access_grant_with_analysis(self):
+        from src.ai.analyzer import BehaviorAnalyzer
+        now = datetime.now()
+        for i in range(35):
+            self.db.create_access_log(
+                type('Log', (), {
+                    'user_id': self.user_id,
+                    'access_time': (now - timedelta(hours=i)).isoformat(),
+                    'location': 'Room 101',
+                    'status': 'granted',
+                    'attempts_count': 1
+                })()
+            )
+
+        self.controller.analyzer.train_from_database()
+        result = self.controller.request_access(self.user_id, "Room 101", now.isoformat())
+        assert result.get('classification') in ['Normal', 'Suspicious']
 
 
 class TestSecurityManager:
@@ -89,8 +132,6 @@ class TestSecurityManager:
         assert len(alerts) == 1
         assert alerts[0].alert_type == 'access_denied'
 
-    from datetime import datetime, timedelta
-
     def test_monitor_failed_attempts(self):
         now = datetime.now()
         for i in range(5):
@@ -107,6 +148,23 @@ class TestSecurityManager:
         result = self.security.monitor_failed_attempts(self.user_id, 60)
         assert result['is_suspicious'] is True
         assert result['attempts_count'] == 5
+
+    def test_monitor_passed_attempts(self):
+        now = datetime.now()
+        for i in range(2):
+            past_time = (now - timedelta(minutes=i*5)).strftime("%Y-%m-%d %H:%M:%S")
+            self.db.create_access_log(
+                type('Log', (), {
+                    'user_id': self.user_id,
+                    'access_time': past_time,
+                    'location': 'Room 101',
+                    'status': 'granted',
+                    'attempts_count': 1
+                })()
+            )
+        result = self.security.monitor_failed_attempts(self.user_id, 60)
+        assert result['is_suspicious'] is False
+        assert result['attempts_count'] == 0
 
 
 class TestEventListeners:
