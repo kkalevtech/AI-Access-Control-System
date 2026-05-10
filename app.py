@@ -108,4 +108,16 @@ def api_analyze():
 
 
 if __name__ == '__main__':
+    print("=== AI Access Control System ===")
+    print(f"Database: {len(db.get_all_access_logs())} access logs")
+    
+    # Ask to retrain
+    response = input("Retrain model on current data? (y/n): ").strip().lower()
+    if response == 'y':
+        print("Training...")
+        result = analyzer.train_from_database()
+        print(f"Trained: {result['num_samples']} samples, {result['accuracy']*100:.0f}% accuracy")
+    else:
+        print("Using existing model...")
+    
     app.run(debug=True)
