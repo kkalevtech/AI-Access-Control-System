@@ -32,7 +32,6 @@ class DatabaseManager:
                 access_time TEXT NOT NULL,
                 location TEXT NOT NULL,
                 status TEXT NOT NULL,
-                attempts_count INTEGER DEFAULT 1,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         ''')
@@ -106,8 +105,8 @@ class DatabaseManager:
     def create_access_log(self, log):
         cursor = self.connection.cursor()
         cursor.execute(
-            'INSERT INTO access_logs (user_id, access_time, location, status, attempts_count) VALUES (?, ?, ?, ?, ?)',
-            (log.user_id, log.access_time, log.location, log.status, log.attempts_count)
+            'INSERT INTO access_logs (user_id, access_time, location, status) VALUES (?, ?, ?, ?)',
+            (log.user_id, log.access_time, log.location, log.status)
         )
         self.connection.commit()
         return cursor.lastrowid
@@ -122,8 +121,7 @@ class DatabaseManager:
                 user_id=row['user_id'],
                 access_time=row['access_time'],
                 location=row['location'],
-                status=row['status'],
-                attempts_count=row['attempts_count']
+                status=row['status']
             )
         return None
 
@@ -137,8 +135,7 @@ class DatabaseManager:
                 user_id=row['user_id'],
                 access_time=row['access_time'],
                 location=row['location'],
-                status=row['status'],
-                attempts_count=row['attempts_count']
+                status=row['status']
             )
             for row in rows
         ]
@@ -153,8 +150,7 @@ class DatabaseManager:
                 user_id=row['user_id'],
                 access_time=row['access_time'],
                 location=row['location'],
-                status=row['status'],
-                attempts_count=row['attempts_count']
+                status=row['status']
             )
             for row in rows
         ]
@@ -285,8 +281,7 @@ class DatabaseManager:
                 user_id=row['user_id'],
                 access_time=row['access_time'],
                 location=row['location'],
-                status=row['status'],
-                attempts_count=row['attempts_count']
+                status=row['status']
             )
             for row in rows
         ]

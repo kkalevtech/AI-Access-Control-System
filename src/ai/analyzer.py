@@ -36,6 +36,10 @@ class BehaviorAnalyzer:
 
         historical_denied = self.get_historical_denied_count(user_id)
         is_night = 1 if self.is_night_access(hour) else 0
+        
+        # KEY FEATURE: Historical grant rate for THIS user-location pair
+        # This is what makes ML useful! If user has been granted before, likely grant again
+        user_location_grant_rate = self.get_user_location_grant_rate(user_id, location)
 
         return {
             'hour': hour,
@@ -47,7 +51,8 @@ class BehaviorAnalyzer:
             'is_same_department': is_same_dept,
             'user_access_level': user_access_level,
             'historical_denied_count': historical_denied,
-            'is_night_access': is_night
+            'is_night_access': is_night,
+            'user_location_grant_rate': user_location_grant_rate
         }
 
     def analyze(self, user_id, access_time, location):
@@ -67,7 +72,8 @@ class BehaviorAnalyzer:
             features['is_same_department'],
             features['user_access_level'],
             features['historical_denied_count'],
-            features['is_night_access']
+            features['is_night_access'],
+            features['user_location_grant_rate']
         ]
 
         prediction = self.model.predict([feature_array])[0]
@@ -103,7 +109,8 @@ class BehaviorAnalyzer:
             features['is_same_department'],
             features['user_access_level'],
             features['historical_denied_count'],
-            features['is_night_access']
+            features['is_night_access'],
+            features['user_location_grant_rate']
         ]
 
         proba = self.model.predict_proba([feature_array])[0]
@@ -149,8 +156,35 @@ class BehaviorAnalyzer:
     def is_night_access(self, hour):
         return hour >= 22 or hour < 6
 
+    def get_user_location_grant_rate(self, user_id, location):
+        """Get historical grant rate for user-location pair (0-1 scale)
+        
+        Key feature! If user was granted before to this location, likely grant again.
+        This is what makes ML useful - learns from history.
+        """
+        try:
+            logs = self.database.get_user_access_logs(user_id)
+            if not logs:
+                return 0.5  # No history = neutral
+            
+            # Filter logs for this specific location
+            location_logs = [log for log in logs if log.location == location]
+            if not location_logs:
+                return 0.5  # No history for this location = neutral
+            
+            granted = sum(1 for log in location_logs if log.status == 'granted')
+            return granted / len(location_logs)
+        except Exception:
+            return 0.5
+
     def _generate_reason(self, features):
         reasons = []
+        if features['user_location_grant_rate'] > 0.7:
+            reasons.append(f"Previously granted (rate: {features['user_location_grant_rate']:.0%})")
+        elif features['user_location_grant_rate'] < 0.3 and features['user_location_grant_rate'] > 0:
+            reasons.append(f"Low historical grant rate ({features['user_location_grant_rate']:.0%})")
+        elif features['user_location_grant_rate'] == 0.5:
+            reasons.append("No prior access history")
         if features['is_night_access'] == 1:
             reasons.append("Access during night hours (22:00-06:00)")
         if features['access_count_last_hour'] > 3:
@@ -177,12 +211,21 @@ class BehaviorAnalyzer:
                 try:
                     features = self.extract_features(log.user_id, log.access_time, log.location)
 
+                    # Labeling rules - what makes something "suspicious"
+                    # Key: lower grant rate = more suspicious
                     is_suspicious = 0
-                    if features['is_night_access'] == 1:
+                    
+                    # If historical grant rate is low (0 to 0.3), suspicious
+                    if features['user_location_grant_rate'] <= 0.3:
                         is_suspicious = 1
+                    # Night access + low/no history
+                    elif features['is_night_access'] == 1 and features['user_location_grant_rate'] < 0.5:
+                        is_suspicious = 1
+                    # High frequency attempt
                     elif features['access_count_last_hour'] > 3:
                         is_suspicious = 1
-                    elif features['is_assigned_room'] == 0:
+                    # No history and trying non-assigned room
+                    elif features['user_location_grant_rate'] == 0.5 and features['is_assigned_room'] == 0:
                         is_suspicious = 1
 
                     X.append([
@@ -195,7 +238,8 @@ class BehaviorAnalyzer:
                         features['is_same_department'],
                         features['user_access_level'],
                         features['historical_denied_count'],
-                        features['is_night_access']
+                        features['is_night_access'],
+                        features['user_location_grant_rate']
                     ])
                     y.append(is_suspicious)
                 except Exception:

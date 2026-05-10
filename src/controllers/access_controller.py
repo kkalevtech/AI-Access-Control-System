@@ -70,8 +70,7 @@ class AccessController:
             user_id=user_id,
             access_time=access_time,
             location=location,
-            status='granted',
-            attempts_count=1
+            status='granted'
         )
         self.database.create_access_log(log)
         return {
@@ -90,8 +89,7 @@ class AccessController:
             user_id=user_id,
             access_time=access_time,
             location=location,
-            status='granted',
-            attempts_count=1
+            status='granted'
         )
         self.database.create_access_log(log)
         return {
@@ -110,8 +108,7 @@ class AccessController:
             user_id=user_id,
             access_time=access_time,
             location=location,
-            status='denied',
-            attempts_count=1
+            status='denied'
         )
         self.database.create_access_log(log)
 
