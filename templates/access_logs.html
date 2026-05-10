@@ -1,43 +1,32 @@
 {% extends "base.html" %}
-
-{% block title %}Access Logs{% endblock %}
-
+{% block title %}Access Logs - AI Access Control{% endblock %}
 {% block content %}
-<h1>Access Logs</h1>
+<div class="page-header">
+    <h1 class="page-title">Access Logs</h1>
+</div>
 
-<form method="get" action="{{ url_for('access_logs') }}" class="filter-form">
-    <label for="user_id">Filter by User ID:</label>
-    <input type="number" name="user_id" id="user_id" placeholder="Enter user ID">
-    <button type="submit" class="btn">Filter</button>
-    <a href="{{ url_for('access_logs') }}" class="btn">Clear</a>
-</form>
-
-{% if logs %}
-<table class="data-table">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>User ID</th>
-            <th>Time</th>
-            <th>Location</th>
-            <th>Status</th>
-            <th>Attempts</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for log in logs %}
-        <tr>
-            <td>{{ log.id }}</td>
-            <td>{{ log.user_id }}</td>
-            <td>{{ log.access_time }}</td>
-            <td>{{ log.location }}</td>
-            <td class="status-{{ log.status }}">{{ log.status }}</td>
-            <td>{{ log.attempts_count }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>No access logs found</p>
-{% endif %}
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>User</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.id }}</td>
+                <td><a href="{{ url_for('users') }}" class="user-link">{{ users[log.user_id] if log.user_id in users else 'User ' ~ log.user_id }}</a></td>
+                <td>{{ log.location }}</td>
+                <td><span class="status-badge status-{{ log.status }}">{{ log.status }}</span></td>
+                <td>{{ log.access_time[:19] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

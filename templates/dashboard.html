@@ -1,52 +1,79 @@
 {% extends "base.html" %}
-
-{% block title %}Dashboard{% endblock %}
-
+{% block title %}Dashboard - AI Access Control{% endblock %}
 {% block content %}
-<h1>Dashboard</h1>
+<div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+</div>
 
 <div class="stats-grid">
     <div class="stat-card">
-        <h3>Total Users</h3>
-        <p class="stat-number">{{ total_users }}</p>
+        <div class="stat-label">Total Users</div>
+        <div class="stat-value">{{ total_users }}</div>
     </div>
     <div class="stat-card">
-        <h3>Total Access Logs</h3>
-        <p class="stat-number">{{ total_logs }}</p>
+        <div class="stat-label">Total Access Logs</div>
+        <div class="stat-value">{{ total_logs }}</div>
     </div>
     <div class="stat-card">
-        <h3>Total Alerts</h3>
-        <p class="stat-number">{{ total_alerts }}</p>
+        <div class="stat-label">Granted</div>
+        <div class="stat-value success">{{ granted }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Denied</div>
+        <div class="stat-value danger">{{ denied }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Security Alerts</div>
+        <div class="stat-value warning">{{ recent_alerts }}</div>
     </div>
 </div>
 
-<div class="recent-section">
-    <h2>Recent Alerts</h2>
-    {% if recent_alerts %}
-    <table class="data-table">
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 style="font-size: 1.25rem;">Recent Access Activity</h2>
+        <form method="post" action="{{ url_for('reset_db') }}" id="resetForm">
+            <button type="submit" class="btn btn-danger" onclick="resetDb(event)">Reset Database</button>
+        </form>
+    </div>
+    <table>
         <thead>
             <tr>
-                <th>ID</th>
                 <th>User ID</th>
-                <th>Type</th>
-                <th>Description</th>
-                <th>Created At</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Time</th>
             </tr>
         </thead>
         <tbody>
-            {% for alert in recent_alerts %}
+            {% for log in recent %}
             <tr>
-                <td>{{ alert.id }}</td>
-                <td>{{ alert.user_id }}</td>
-                <td>{{ alert.alert_type }}</td>
-                <td>{{ alert.description }}</td>
-                <td>{{ alert.created_at }}</td>
+                <td>{{ log.user_id }}</td>
+                <td>{{ log.location }}</td>
+                <td><span class="status-badge status-{{ log.status }}">{{ log.status }}</span></td>
+                <td>{{ log.access_time[:19] }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    {% else %}
-    <p>No recent alerts</p>
-    {% endif %}
 </div>
+
+<script>
+async function resetDb(e) {
+    e.preventDefault();
+    if (!confirm('Reset database with new random data?')) return;
+    
+    const form = document.getElementById('resetForm');
+    const fd = new FormData(form);
+    
+    try {
+        const resp = await fetch('/reset-db', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (data.status === 'success') {
+            location.reload();
+        }
+    } catch(err) {
+        alert('Error: ' + err);
+    }
+}
+</script>
 {% endblock %}

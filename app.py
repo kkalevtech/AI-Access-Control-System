@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from src.database.database_manager import DatabaseManager
 from src.controllers.access_controller import AccessController
 from src.controllers.security_manager import SecurityManager
@@ -11,11 +11,6 @@ app = Flask(__name__)
 db = DatabaseManager("access_control.db")
 dispatcher = EventDispatcher()
 analyzer = BehaviorAnalyzer(db)
-if not analyzer.is_trained:
-    try:
-        analyzer.train_from_database()
-    except:
-        pass
 access_controller = AccessController(db, dispatcher)
 security_manager = SecurityManager(db, dispatcher)
 
@@ -26,20 +21,30 @@ dispatcher.register_listener("on_multiple_attempts", security_manager.on_multipl
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return redirect(url_for('dashboard'))
 
 
 @app.route('/dashboard')
 def dashboard():
-    total_users = len(db.get_all_users())
-    total_logs = len(db.get_all_access_logs())
-    total_alerts = len(db.get_all_alerts())
-    recent_alerts = db.get_all_alerts()[-5:] if total_alerts > 0 else []
-    return render_template('dashboard.html', 
-                       total_users=total_users,
-                       total_logs=total_logs,
-                       total_alerts=total_alerts,
-                       recent_alerts=recent_alerts)
+    users = db.get_all_users()
+    logs = db.get_all_access_logs()
+    alerts = db.get_all_alerts()
+    
+    total_users = len(users)
+    total_logs = len(logs)
+    granted = sum(1 for l in logs if l.status == 'granted')
+    denied = total_logs - granted
+    
+    # Recent activity
+    recent = logs[-10:] if logs else []
+    
+    return render_template('dashboard.html',
+                     total_users=total_users,
+                     total_logs=total_logs,
+                     granted=granted,
+                     denied=denied,
+                     recent_alerts=len(alerts),
+                     recent=recent)
 
 
 @app.route('/users')
@@ -50,22 +55,9 @@ def users():
 
 @app.route('/access_logs')
 def access_logs():
-    user_id = request.args.get('user_id')
-    if user_id:
-        logs = db.get_user_access_logs(int(user_id))
-    else:
-        logs = db.get_all_access_logs()
-    return render_template('access_logs.html', logs=logs)
-
-
-@app.route('/alerts')
-def alerts():
-    user_id = request.args.get('user_id')
-    if user_id:
-        alerts = db.get_user_alerts(int(user_id))
-    else:
-        alerts = db.get_all_alerts()
-    return render_template('alerts.html', alerts=alerts)
+    logs = db.get_all_access_logs()
+    users = {u.id: u.name for u in db.get_all_users()}
+    return render_template('access_logs.html', logs=logs, users=users)
 
 
 @app.route('/request_access', methods=['GET', 'POST'])
@@ -79,45 +71,35 @@ def request_access():
     return render_template('request_access.html', users=users)
 
 
-@app.route('/api/users', methods=['GET'])
-def api_users():
-    users = db.get_all_users()
-    return jsonify([u.to_dict() for u in users])
-
-
-@app.route('/api/access_logs', methods=['GET'])
-def api_access_logs():
-    logs = db.get_all_access_logs()
-    return jsonify([log.to_dict() for log in logs])
-
-
-@app.route('/api/alerts', methods=['GET'])
-def api_alerts():
-    alerts = db.get_all_alerts()
-    return jsonify([a.to_dict() for a in alerts])
-
-
-@app.route('/api/analyze', methods=['POST'])
-def api_analyze():
-    data = request.json
-    user_id = data['user_id']
-    location = data['location']
-    access_time = data.get('access_time')
-    result = analyzer.analyze(user_id, access_time or datetime.now().isoformat(), location)
-    return jsonify({'result': result})
+@app.route('/reset-db', methods=['POST'])
+def reset_db():
+    """Regenerate database and retrain model"""
+    import os
+    db_path = "access_control.db"
+    
+    # Delete old DB
+    if os.path.exists(db_path):
+        os.remove(db_path)
+    
+    # Generate new data
+    from src.seed_data import generate_messy_data
+    generate_messy_data(db_path)
+    
+    # Reinitialize with new DB
+    global db, analyzer, access_controller, security_manager
+    db = DatabaseManager(db_path)
+    analyzer = BehaviorAnalyzer(db)
+    access_controller = AccessController(db, dispatcher)
+    security_manager = SecurityManager(db, dispatcher)
+    
+    result = analyzer.train_from_database()
+    
+    return jsonify({'status': 'success', 'result': result})
 
 
 if __name__ == '__main__':
-    print("=== AI Access Control System ===")
-    print(f"Database: {len(db.get_all_access_logs())} access logs")
-    
-    # Ask to retrain
-    response = input("Retrain model on current data? (y/n): ").strip().lower()
-    if response == 'y':
-        print("Training...")
-        result = analyzer.train_from_database()
-        print(f"Trained: {result['num_samples']} samples, {result['accuracy']*100:.0f}% accuracy")
-    else:
-        print("Using existing model...")
-    
-    app.run(debug=True)
+    # Auto-train on startup
+    if not analyzer.is_trained:
+        print("Auto-training model...")
+        analyzer.train_from_database()
+    app.run(debug=True, use_reloader=False)

@@ -1,43 +1,29 @@
 {% extends "base.html" %}
-
-{% block title %}Access Result{% endblock %}
-
+{% block title %}Access Result - AI Access Control{% endblock %}
 {% block content %}
-<h1>Access Request Result</h1>
-
-<div class="result-card {% if result.granted %}granted{% else %}denied{% endif %}">
-    <h2>{{ 'Access Granted' if result.granted else 'Access Denied' }}</h2>
+<div class="page-header">
+    <h1 class="page-title">Access Request Result</h1>
 </div>
 
-<div class="result-details">
-    <div class="detail-row">
-        <strong>User ID:</strong>
-        <span>{{ result.user_id }}</span>
-    </div>
-    <div class="detail-row">
-        <strong>Location:</strong>
-        <span>{{ result.location }}</span>
-    </div>
-    <div class="detail-row">
-        <strong>Timestamp:</strong>
-        <span>{{ result.timestamp }}</span>
-    </div>
-    {% if result.classification %}
-    <div class="detail-row">
-        <strong>Classification:</strong>
-        <span class="classification-{{ result.classification|lower }}">{{ result.classification }}</span>
-    </div>
-    <div class="detail-row">
-        <strong>Confidence:</strong>
-        <span>{{ "%.1f"|format(result.get('confidence_normal', 0)) }}% Normal, {{ "%.1f"|format(result.get('confidence_suspicious', 0)) }}% Suspicious</span>
-    </div>
-    {% endif %}
-    <div class="detail-row">
-        <strong>Reason:</strong>
-        <span>{{ result.reason }}</span>
+<div class="result-box {% if result.granted %}result-granted{% else %}result-denied{% endif %}">
+    <div class="result-title">{% if result.granted %}Access Granted{% else %}Access Denied{% endif %}</div>
+    <p>{{ result.reason }}</p>
+</div>
+
+<div class="card" style="max-width: 500px; margin-top: 1.5rem;">
+    <div style="display: grid; gap: 1rem;">
+        <div><strong>User ID:</strong> {{ result.user_id }}</div>
+        <div><strong>Location:</strong> {{ result.location }}</div>
+        <div><strong>Time:</strong> {{ result.timestamp[:19] }}</div>
+        {% if result.classification %}
+        <div><strong>ML Classification:</strong> {{ result.classification }}</div>
+        <div><strong>Confidence:</strong> {{ "%.1f"|format(result.get('confidence_normal', 0)) }}% Normal, {{ "%.1f"|format(result.get('confidence_suspicious', 0)) }}% Suspicious</div>
+        {% endif %}
     </div>
 </div>
 
-<a href="{{ url_for('request_access') }}" class="btn">Request Another</a>
-<a href="{{ url_for('dashboard') }}" class="btn">Go to Dashboard</a>
+<div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+    <a href="{{ url_for('request_access') }}" class="btn btn-primary">Request Another</a>
+    <a href="{{ url_for('dashboard') }}" class="btn" style="background: #64748b; color: #fff;">Dashboard</a>
+</div>
 {% endblock %}
