@@ -2,6 +2,12 @@ from functools import reduce
 from collections import defaultdict
 
 
+DEPT_PREFIX_MAP = {
+    'FIN': 'Finance', 'HR': 'HR', 'IT': 'IT',
+    'MKT': 'Marketing', 'OPS': 'Operations'
+}
+
+
 def _parse_time(access_time):
     try:
         parts = access_time.split(':')
@@ -13,12 +19,8 @@ def _parse_time(access_time):
 def analyze_access_patterns(access_logs):
     if not access_logs:
         return {
-            'total': 0,
-            'granted': 0,
-            'denied': 0,
-            'success_rate': 0,
-            'by_location': {},
-            'by_day': {}
+            'total': 0, 'granted': 0, 'denied': 0,
+            'success_rate': 0, 'by_location': {}, 'by_day': {}
         }
 
     total = len(access_logs)
@@ -33,15 +35,10 @@ def analyze_access_patterns(access_logs):
     by_day = defaultdict(int)
     for log in access_logs:
         is_weekend = getattr(log, 'is_weekend', 0)
-        if is_weekend:
-            by_day['Weekend'] += 1
-        else:
-            by_day['Weekday'] += 1
+        by_day['Weekend' if is_weekend else 'Weekday'] += 1
 
     return {
-        'total': total,
-        'granted': granted,
-        'denied': denied,
+        'total': total, 'granted': granted, 'denied': denied,
         'success_rate': success_rate,
         'by_location': dict(by_location),
         'by_day': dict(by_day)
@@ -76,13 +73,18 @@ def detect_anomalies(access_logs):
     for log in access_logs:
         user_counts[log.user_id] += 1
 
-    mean_count = reduce(lambda a, b: a + b, map(lambda x: x[1], user_counts.items()), 0) / len(user_counts) if user_counts else 0
+    mean_count = reduce(
+        lambda a, b: a + b,
+        map(lambda x: x[1], user_counts.items()), 0
+    ) / len(user_counts) if user_counts else 0
 
     high_frequency_users = list(filter(
         lambda x: x[1] > mean_count * 3,
         user_counts.items()
     ))
-    high_frequency_users = list(map(lambda x: {'user_id': x[0], 'count': x[1]}, high_frequency_users))
+    high_frequency_users = list(
+        map(lambda x: {'user_id': x[0], 'count': x[1]}, high_frequency_users)
+    )
 
     location_counts = defaultdict(int)
     for log in access_logs:
@@ -92,7 +94,9 @@ def detect_anomalies(access_logs):
         lambda x: x[1] <= 2,
         location_counts.items()
     ))
-    unusual_locations = list(map(lambda x: {'location': x[0], 'count': x[1]}, unusual_locations))
+    unusual_locations = list(
+        map(lambda x: {'location': x[0], 'count': x[1]}, unusual_locations)
+    )
 
     odd_time_patterns = []
     for user_id in user_counts:
@@ -129,7 +133,6 @@ def generate_access_report(db_manager, start_time=None, end_time=None):
     patterns = analyze_access_patterns(logs)
     peak_hours = get_peak_access_hours(logs)
     anomalies = detect_anomalies(logs)
-
     most_active = db_manager.get_most_active_users(limit=5)
 
     return {

@@ -2,6 +2,12 @@ import sqlite3
 from src.models import User, AccessLog, Department, Room
 
 
+DEPT_PREFIX_MAP = {
+    'FIN': 'Finance', 'HR': 'HR', 'IT': 'IT',
+    'MKT': 'Marketing', 'OPS': 'Operations'
+}
+
+
 class DatabaseManager:
     ALL_ROOMS = ['FIN-101', 'FIN-102', 'FIN-201', 'FIN-202', 'FIN-301', 'FIN-302',
                  'HR-101', 'HR-102', 'HR-201', 'HR-202', 'HR-301', 'HR-302',
@@ -44,11 +50,22 @@ class DatabaseManager:
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                department TEXT NOT NULL,
+                role TEXT DEFAULT '',
                 access_level INTEGER NOT NULL DEFAULT 1,
                 assigned_room TEXT,
                 assigned_room_id INTEGER,
                 FOREIGN KEY (assigned_room_id) REFERENCES rooms(id)
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_departments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                department_id INTEGER NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE CASCADE,
+                UNIQUE(user_id, department_id)
             )
         ''')
 
@@ -90,6 +107,14 @@ class DatabaseManager:
             return Department(id=row['id'], name=row['name'])
         return None
 
+    def get_department_by_name(self, name):
+        cursor = self.connection.cursor()
+        cursor.execute('SELECT * FROM departments WHERE name = ?', (name,))
+        row = cursor.fetchone()
+        if row:
+            return Department(id=row['id'], name=row['name'])
+        return None
+
     # --- Rooms ---
 
     def create_room(self, room):
@@ -111,12 +136,8 @@ class DatabaseManager:
         ''')
         rows = cursor.fetchall()
         return [
-            Room(
-                id=row['id'],
-                room_code=row['room_code'],
-                department_id=row['department_id'],
-                department_name=row['department_name']
-            )
+            Room(id=row['id'], room_code=row['room_code'],
+                 department_id=row['department_id'], department_name=row['department_name'])
             for row in rows
         ]
 
@@ -130,12 +151,8 @@ class DatabaseManager:
         ''', (room_id,))
         row = cursor.fetchone()
         if row:
-            return Room(
-                id=row['id'],
-                room_code=row['room_code'],
-                department_id=row['department_id'],
-                department_name=row['department_name']
-            )
+            return Room(id=row['id'], room_code=row['room_code'],
+                        department_id=row['department_id'], department_name=row['department_name'])
         return None
 
     def get_room_by_code(self, room_code):
@@ -148,13 +165,37 @@ class DatabaseManager:
         ''', (room_code,))
         row = cursor.fetchone()
         if row:
-            return Room(
-                id=row['id'],
-                room_code=row['room_code'],
-                department_id=row['department_id'],
-                department_name=row['department_name']
-            )
+            return Room(id=row['id'], room_code=row['room_code'],
+                        department_id=row['department_id'], department_name=row['department_name'])
         return None
+
+    # --- User Departments (many-to-many) ---
+
+    def set_user_departments(self, user_id, department_ids):
+        cursor = self.connection.cursor()
+        cursor.execute('DELETE FROM user_departments WHERE user_id = ?', (user_id,))
+        for dept_id in department_ids:
+            cursor.execute(
+                'INSERT OR IGNORE INTO user_departments (user_id, department_id) VALUES (?, ?)',
+                (user_id, dept_id)
+            )
+        self.connection.commit()
+
+    def get_user_departments(self, user_id):
+        cursor = self.connection.cursor()
+        cursor.execute('''
+            SELECT d.id, d.name FROM departments d
+            JOIN user_departments ud ON d.id = ud.department_id
+            WHERE ud.user_id = ?
+            ORDER BY d.name
+        ''', (user_id,))
+        rows = cursor.fetchall()
+        return [row['name'] for row in rows]
+
+    def get_user_department_ids(self, user_id):
+        cursor = self.connection.cursor()
+        cursor.execute('SELECT department_id FROM user_departments WHERE user_id = ?', (user_id,))
+        return [row['department_id'] for row in cursor.fetchall()]
 
     # --- Users ---
 
@@ -166,8 +207,8 @@ class DatabaseManager:
             if room:
                 assigned_room_id = room.id
         cursor.execute(
-            'INSERT INTO users (name, department, access_level, assigned_room, assigned_room_id) VALUES (?, ?, ?, ?, ?)',
-            (user.name, user.department, user.access_level, user.assigned_room, assigned_room_id)
+            'INSERT INTO users (name, role, access_level, assigned_room, assigned_room_id) VALUES (?, ?, ?, ?, ?)',
+            (user.name, user.role or '', user.access_level, user.assigned_room, assigned_room_id)
         )
         self.connection.commit()
         return cursor.lastrowid
@@ -177,31 +218,35 @@ class DatabaseManager:
         cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
         row = cursor.fetchone()
         if row:
+            depts = self.get_user_departments(row['id'])
             return User(
                 id=row['id'],
                 name=row['name'],
-                department=row['department'],
+                role=row['role'],
                 access_level=row['access_level'],
                 assigned_room=row['assigned_room'],
-                assigned_room_id=row['assigned_room_id']
+                assigned_room_id=row['assigned_room_id'],
+                departments=depts
             )
         return None
 
     def get_all_users(self):
         cursor = self.connection.cursor()
-        cursor.execute('SELECT * FROM users')
+        cursor.execute('SELECT * FROM users ORDER BY id')
         rows = cursor.fetchall()
-        return [
-            User(
+        users = []
+        for row in rows:
+            depts = self.get_user_departments(row['id'])
+            users.append(User(
                 id=row['id'],
                 name=row['name'],
-                department=row['department'],
+                role=row['role'],
                 access_level=row['access_level'],
                 assigned_room=row['assigned_room'],
-                assigned_room_id=row['assigned_room_id']
-            )
-            for row in rows
-        ]
+                assigned_room_id=row['assigned_room_id'],
+                departments=depts
+            ))
+        return users
 
     def update_user(self, user_id, **kwargs):
         fields = ', '.join(f'{key} = ?' for key in kwargs.keys())
@@ -214,6 +259,7 @@ class DatabaseManager:
 
     def delete_user(self, user_id):
         cursor = self.connection.cursor()
+        cursor.execute('DELETE FROM user_departments WHERE user_id = ?', (user_id,))
         cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
         self.connection.commit()
         return cursor.rowcount > 0
@@ -240,30 +286,20 @@ class DatabaseManager:
         row = cursor.fetchone()
         if row:
             return AccessLog(
-                id=row['id'],
-                user_id=row['user_id'],
-                access_time=row['access_time'],
-                is_weekend=row['is_weekend'],
-                location=row['location'],
-                status=row['status'],
-                room_id=row['room_id']
+                id=row['id'], user_id=row['user_id'],
+                access_time=row['access_time'], is_weekend=row['is_weekend'],
+                location=row['location'], status=row['status'], room_id=row['room_id']
             )
         return None
 
     def get_all_access_logs(self):
         cursor = self.connection.cursor()
-        cursor.execute('SELECT * FROM access_logs')
+        cursor.execute('SELECT * FROM access_logs ORDER BY id')
         rows = cursor.fetchall()
         return [
-            AccessLog(
-                id=row['id'],
-                user_id=row['user_id'],
-                access_time=row['access_time'],
-                is_weekend=row['is_weekend'],
-                location=row['location'],
-                status=row['status'],
-                room_id=row['room_id']
-            )
+            AccessLog(id=row['id'], user_id=row['user_id'],
+                      access_time=row['access_time'], is_weekend=row['is_weekend'],
+                      location=row['location'], status=row['status'], room_id=row['room_id'])
             for row in rows
         ]
 
@@ -272,15 +308,9 @@ class DatabaseManager:
         cursor.execute('SELECT * FROM access_logs WHERE user_id = ?', (user_id,))
         rows = cursor.fetchall()
         return [
-            AccessLog(
-                id=row['id'],
-                user_id=row['user_id'],
-                access_time=row['access_time'],
-                is_weekend=row['is_weekend'],
-                location=row['location'],
-                status=row['status'],
-                room_id=row['room_id']
-            )
+            AccessLog(id=row['id'], user_id=row['user_id'],
+                      access_time=row['access_time'], is_weekend=row['is_weekend'],
+                      location=row['location'], status=row['status'], room_id=row['room_id'])
             for row in rows
         ]
 
@@ -342,7 +372,9 @@ class DatabaseManager:
                    SUM(CASE WHEN status = 'denied' THEN 1 ELSE 0 END) as denied
             FROM access_logs al
             JOIN users u ON al.user_id = u.id
-            WHERE u.department = ?
+            JOIN user_departments ud ON u.id = ud.user_id
+            JOIN departments d ON ud.department_id = d.id
+            WHERE d.name = ?
         ''', (department,))
         row = cursor.fetchone()
         return {
@@ -359,15 +391,9 @@ class DatabaseManager:
         )
         rows = cursor.fetchall()
         return [
-            AccessLog(
-                id=row['id'],
-                user_id=row['user_id'],
-                access_time=row['access_time'],
-                is_weekend=row['is_weekend'],
-                location=row['location'],
-                status=row['status'],
-                room_id=row['room_id']
-            )
+            AccessLog(id=row['id'], user_id=row['user_id'],
+                      access_time=row['access_time'], is_weekend=row['is_weekend'],
+                      location=row['location'], status=row['status'], room_id=row['room_id'])
             for row in rows
         ]
 

@@ -32,16 +32,6 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Initialize the database:
-```bash
-python -c "from src.database.database_manager import DatabaseManager; db = DatabaseManager('access_control.db'); db.init_db()"
-```
-
-5. Generate sample data:
-```bash
-python -m src.seed_data
-```
-
 ## Usage
 
 ### Running the Web GUI
@@ -49,6 +39,8 @@ python -m src.seed_data
 ```bash
 python app.py
 ```
+
+The database and sample data are generated automatically on first startup.
 
 Then open http://127.0.0.1:5000 in your browser.
 
@@ -78,10 +70,9 @@ src/
 ├── database/          # DatabaseManager
 ├── events/            # EventDispatcher, EventArgs
 ├── files/             # FileManager
-├── models/            # User, AccessLog, Alert
+├── models/            # User, AccessLog, Department, Room
 ├── analysis.py        # Statistical analysis
-├── seed_data.py      # Sample data generation
-└── cli.py           # Command-line interface
+└── seed_data.py      # Sample data generation
 
 templates/            # Flask HTML templates
 static/css/          # CSS styles

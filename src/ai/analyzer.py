@@ -1,16 +1,22 @@
 from datetime import datetime, timedelta
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 import pickle
 import os
+
+
+DEPT_PREFIX_MAP = {
+    'FIN': 'Finance', 'HR': 'HR', 'IT': 'IT',
+    'MKT': 'Marketing', 'OPS': 'Operations'
+}
 
 
 class BehaviorAnalyzer:
     def __init__(self, database):
         self.database = database
-        self.model = DecisionTreeClassifier(random_state=42)
+        self.model = RandomForestClassifier(random_state=42, n_estimators=100)
         self.is_trained = False
 
-    def extract_features(self, user_id, access_time, location, is_weekend=0):
+    def extract_features(self, user_id, access_time, location, is_weekend=0, reference_time=None):
         if isinstance(access_time, str) and ':' in access_time:
             parts = access_time.split(':')
             hour = int(parts[0])
@@ -21,13 +27,14 @@ class BehaviorAnalyzer:
 
         day_of_week = 6 if is_weekend else 0
 
-        access_count_last_hour = self.get_access_frequency(user_id, 60)
+        access_count_last_hour = self.get_access_frequency(user_id, 60, reference_time or access_time)
 
         user = self.database.get_user(user_id)
         if user:
             is_assigned = 1 if location == user.assigned_room else 0
-            location_dept = location.split('-')[0] if '-' in location else location
-            is_same_dept = 1 if location_dept == user.department else 0
+            loc_prefix = location.split('-')[0] if '-' in location else location
+            loc_dept = DEPT_PREFIX_MAP.get(loc_prefix, '')
+            is_same_dept = 1 if loc_dept in user.departments else 0
             user_access_level = user.access_level
         else:
             is_assigned = 0
@@ -36,9 +43,7 @@ class BehaviorAnalyzer:
 
         historical_denied = self.get_historical_denied_count(user_id)
         is_night = 1 if self.is_night_access(hour) else 0
-        
-        # KEY FEATURE: Historical grant rate for THIS user-location pair
-        # This is what makes ML useful! If user has been granted before, likely grant again
+
         user_location_grant_rate = self.get_user_location_grant_rate(user_id, location)
 
         return {
@@ -63,23 +68,15 @@ class BehaviorAnalyzer:
 
         features = self.extract_features(user_id, access_time, location, is_weekend)
         feature_array = [
-            features['hour'],
-            features['minute'],
-            features['day_of_week'],
-            features['is_weekend'],
-            features['access_count_last_hour'],
-            features['is_assigned_room'],
-            features['is_same_department'],
-            features['user_access_level'],
-            features['historical_denied_count'],
-            features['is_night_access'],
-            features['user_location_grant_rate']
+            features['hour'], features['minute'], features['day_of_week'],
+            features['is_weekend'], features['access_count_last_hour'],
+            features['is_assigned_room'], features['is_same_department'],
+            features['user_access_level'], features['historical_denied_count'],
+            features['is_night_access'], features['user_location_grant_rate']
         ]
 
         prediction = self.model.predict([feature_array])[0]
         proba = self.model.predict_proba([feature_array])[0]
-
-        confidence = self.get_prediction_confidence(features)
 
         if prediction == 1:
             classification = "Suspicious"
@@ -90,8 +87,8 @@ class BehaviorAnalyzer:
 
         return {
             'classification': classification,
-            'confidence_normal': confidence['normal_prob'] * 100,
-            'confidence_suspicious': confidence['suspicious_prob'] * 100,
+            'confidence_normal': proba[0] * 100,
+            'confidence_suspicious': proba[1] * 100,
             'reason': reason,
             'user_id': user_id,
             'location': location,
@@ -100,38 +97,47 @@ class BehaviorAnalyzer:
 
     def get_prediction_confidence(self, features):
         feature_array = [
-            features['hour'],
-            features['minute'],
-            features['day_of_week'],
-            features['is_weekend'],
-            features['access_count_last_hour'],
-            features['is_assigned_room'],
-            features['is_same_department'],
-            features['user_access_level'],
-            features['historical_denied_count'],
-            features['is_night_access'],
-            features['user_location_grant_rate']
+            features['hour'], features['minute'], features['day_of_week'],
+            features['is_weekend'], features['access_count_last_hour'],
+            features['is_assigned_room'], features['is_same_department'],
+            features['user_access_level'], features['historical_denied_count'],
+            features['is_night_access'], features['user_location_grant_rate']
         ]
-
         proba = self.model.predict_proba([feature_array])[0]
         return {
             'normal_prob': proba[0],
             'suspicious_prob': proba[1]
         }
 
-    def get_access_frequency(self, user_id, time_window_minutes=60):
+    def get_access_frequency(self, user_id, time_window_minutes=60, reference_time_str=None):
         try:
             logs = self.database.get_user_access_logs(user_id)
             if not logs:
                 return 0
 
-            cutoff_time = datetime.now() - timedelta(minutes=time_window_minutes)
+            if reference_time_str is None:
+                now = datetime.now()
+                reference_time_str = now.strftime('%H:%M:%S')
+
+            parts = reference_time_str.split(':')
+            ref_seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+            cutoff_seconds = ref_seconds - time_window_minutes * 60
+            if cutoff_seconds < 0:
+                cutoff_seconds += 86400
+            cutoff_h = cutoff_seconds // 3600
+            cutoff_m = (cutoff_seconds % 3600) // 60
+            cutoff_s = cutoff_seconds % 60
+            cutoff_str = f"{cutoff_h:02d}:{cutoff_m:02d}:{cutoff_s:02d}"
+
             count = 0
             for log in logs:
                 try:
-                    log_time = datetime.fromisoformat(log.access_time.replace('Z', '+00:00'))
-                    if log_time >= cutoff_time:
-                        count += 1
+                    if cutoff_str <= reference_time_str:
+                        if cutoff_str <= log.access_time <= reference_time_str:
+                            count += 1
+                    else:
+                        if log.access_time >= cutoff_str or log.access_time <= reference_time_str:
+                            count += 1
                 except (ValueError, AttributeError):
                     continue
             return count
@@ -157,21 +163,15 @@ class BehaviorAnalyzer:
         return hour >= 22 or hour < 6
 
     def get_user_location_grant_rate(self, user_id, location):
-        """Get historical grant rate for user-location pair (0-1 scale)
-        
-        Key feature! If user was granted before to this location, likely grant again.
-        This is what makes ML useful - learns from history.
-        """
         try:
             logs = self.database.get_user_access_logs(user_id)
             if not logs:
-                return 0.5  # No history = neutral
-            
-            # Filter logs for this specific location
+                return 0.5
+
             location_logs = [log for log in logs if log.location == location]
             if not location_logs:
-                return 0.5  # No history for this location = neutral
-            
+                return 0.5
+
             granted = sum(1 for log in location_logs if log.status == 'granted')
             return granted / len(location_logs)
         except Exception:
@@ -184,15 +184,15 @@ class BehaviorAnalyzer:
         elif features['user_location_grant_rate'] < 0.3 and features['user_location_grant_rate'] > 0:
             reasons.append(f"Low historical grant rate ({features['user_location_grant_rate']:.0%})")
         elif features['user_location_grant_rate'] == 0.5:
-            reasons.append("No prior access history")
+            reasons.append("No prior access history for this location")
         if features['is_night_access'] == 1:
             reasons.append("Access during night hours (22:00-06:00)")
         if features['access_count_last_hour'] > 3:
             reasons.append(f"High access frequency ({features['access_count_last_hour']} attempts in last hour)")
         if features['is_assigned_room'] == 0:
-            reasons.append("Accessing non-assigned room")
+            reasons.append("Not user's assigned room")
         if features['is_same_department'] == 0:
-            reasons.append("Accessing different department area")
+            reasons.append("No department authorization for this area")
         if features['historical_denied_count'] > 5:
             reasons.append(f"User has {features['historical_denied_count']} historical denied attempts")
 
@@ -209,37 +209,20 @@ class BehaviorAnalyzer:
 
             for log in all_logs:
                 try:
-                    features = self.extract_features(log.user_id, log.access_time, log.location, getattr(log, 'is_weekend', 0))
+                    features = self.extract_features(
+                        log.user_id, log.access_time, log.location,
+                        getattr(log, 'is_weekend', 0),
+                        reference_time=log.access_time
+                    )
 
-                    # Labeling rules - what makes something "suspicious"
-                    # Key: lower grant rate = more suspicious
-                    is_suspicious = 0
-                    
-                    # If historical grant rate is low (0 to 0.3), suspicious
-                    if features['user_location_grant_rate'] <= 0.3:
-                        is_suspicious = 1
-                    # Night access + low/no history
-                    elif features['is_night_access'] == 1 and features['user_location_grant_rate'] < 0.5:
-                        is_suspicious = 1
-                    # High frequency attempt
-                    elif features['access_count_last_hour'] > 3:
-                        is_suspicious = 1
-                    # No history and trying non-assigned room
-                    elif features['user_location_grant_rate'] == 0.5 and features['is_assigned_room'] == 0:
-                        is_suspicious = 1
+                    is_suspicious = 1 if log.status == 'denied' else 0
 
                     X.append([
-                        features['hour'],
-                        features['minute'],
-                        features['day_of_week'],
-                        features['is_weekend'],
-                        features['access_count_last_hour'],
-                        features['is_assigned_room'],
-                        features['is_same_department'],
-                        features['user_access_level'],
-                        features['historical_denied_count'],
-                        features['is_night_access'],
-                        features['user_location_grant_rate']
+                        features['hour'], features['minute'], features['day_of_week'],
+                        features['is_weekend'], features['access_count_last_hour'],
+                        features['is_assigned_room'], features['is_same_department'],
+                        features['user_access_level'], features['historical_denied_count'],
+                        features['is_night_access'], features['user_location_grant_rate']
                     ])
                     y.append(is_suspicious)
                 except Exception:
@@ -262,12 +245,9 @@ class BehaviorAnalyzer:
     def save_model(self, filepath="model.pkl"):
         try:
             with open(filepath, 'wb') as f:
-                pickle.dump({
-                    'model': self.model,
-                    'is_trained': self.is_trained
-                }, f)
+                pickle.dump({'model': self.model, 'is_trained': self.is_trained}, f)
             return True
-        except Exception as e:
+        except Exception:
             return False
 
     def load_model(self, filepath="model.pkl"):

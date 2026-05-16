@@ -5,61 +5,176 @@
     <h1 class="page-title">Request Access</h1>
 </div>
 
-<div class="card" style="max-width: 500px;">
-    <form method="post" action="{{ url_for('request_access') }}" id="accessForm" novalidate>
-        <div class="form-group">
-            <label class="form-label" for="user_input">Select User</label>
-            <div class="combo-wrap">
-                <input type="text" id="user_input" class="form-input combo-input"
-                       placeholder="Type to search users..." autocomplete="off" required>
-                <input type="hidden" name="user_id" id="user_id" value="">
-                <ul class="combo-list" id="user_list"></ul>
-            </div>
-            <small id="user_error" class="field-error" style="color: #dc2626; font-size: 0.8rem; display: none;">
-                Please select a valid user from the list
-            </small>
+<div class="request-layout">
+    <div class="request-card">
+        <div class="request-card-header">
+            <span class="request-card-title">Access Request Form</span>
         </div>
-
-        <div class="form-group">
-            <label class="form-label" for="loc_input">Location</label>
-            <div class="combo-wrap">
-                <input type="text" id="loc_input" name="location" class="form-input combo-input"
-                       placeholder="Type to search locations..." autocomplete="off" required>
-                <ul class="combo-list" id="loc_list"></ul>
+        <form method="post" action="{{ url_for('request_access') }}" id="accessForm" novalidate>
+            <div class="form-group">
+                <label class="form-label" for="user_input">User</label>
+                <div class="combo-wrap">
+                    <input type="text" id="user_input" class="form-input combo-input"
+                           placeholder="Search users..." autocomplete="off" required>
+                    <input type="hidden" name="user_id" id="user_id" value="">
+                    <ul class="combo-list" id="user_list"></ul>
+                </div>
+                <small id="user_error" class="field-error">Select a valid user from the list</small>
             </div>
-            <small id="loc_error" class="field-error" style="color: #dc2626; font-size: 0.8rem; display: none;">
-                Please select a valid location from the list
-            </small>
-        </div>
 
-        <button type="submit" class="btn btn-primary">Request Access</button>
-    </form>
+            <div class="form-group">
+                <label class="form-label" for="loc_input">Location</label>
+                <div class="combo-wrap">
+                    <input type="text" id="loc_input" name="location" class="form-input combo-input"
+                           placeholder="Search locations..." autocomplete="off" required>
+                    <ul class="combo-list" id="loc_list"></ul>
+                </div>
+                <small id="loc_error" class="field-error">Select a valid location from the list</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-submit">Submit Request</button>
+        </form>
+    </div>
+
+    <div class="info-card">
+        <div class="info-card-header">
+            <span class="info-card-title">How It Works</span>
+        </div>
+        <ul class="info-list">
+            <li class="info-item">
+                <span class="info-badge">1</span>
+                <span>Select a user from the dropdown</span>
+            </li>
+            <li class="info-item">
+                <span class="info-badge">2</span>
+                <span>Choose the room location</span>
+            </li>
+            <li class="info-item">
+                <span class="info-badge">3</span>
+                <span>Submit to evaluate access</span>
+            </li>
+        </ul>
+        <div class="info-divider"></div>
+        <div class="info-footnote">
+            The system checks access level permissions, flags suspicious behavior, and runs ML analysis to classify the attempt.
+        </div>
+    </div>
 </div>
 
 <style>
+.request-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.request-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.request-card-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.request-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.request-card form {
+    padding: 2rem;
+}
+
+.info-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.info-card-header {
+    padding: 1.5rem 1.5rem 0 1.5rem;
+}
+
+.info-card-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.info-list {
+    list-style: none;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    color: #475569;
+    line-height: 1.4;
+}
+
+.info-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.info-divider {
+    height: 1px;
+    background: #f1f5f9;
+    margin: 0 1.5rem;
+}
+
+.info-footnote {
+    padding: 1rem 1.5rem 1.5rem 1.5rem;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    line-height: 1.5;
+}
+
 .combo-wrap {
     position: relative;
 }
+
 .combo-list {
     position: absolute;
     top: 100%;
     left: 0;
     right: 0;
-    max-height: 180px;
+    max-height: 200px;
     overflow-y: auto;
     background: #fff;
     border: 1px solid #d1d5db;
     border-top: none;
     border-radius: 0 0 8px 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
     z-index: 999;
     list-style: none;
     padding: 0;
     margin: 0;
     display: none;
 }
+
 .combo-list li {
-    padding: 0.5rem 0.75rem;
+    padding: 0.6rem 0.85rem;
     cursor: default;
     font-size: 0.875rem;
     color: #1e293b;
@@ -67,56 +182,83 @@
     justify-content: space-between;
     align-items: center;
 }
+
 .combo-list li .dept-tag {
     font-size: 0.7rem;
     color: #64748b;
     background: #f1f5f9;
     padding: 0.15rem 0.5rem;
     border-radius: 4px;
+    margin-left: 0.5rem;
+    flex-shrink: 0;
 }
+
+.combo-list li .user-meta {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
 .combo-list li.active {
     background: #eff6ff;
 }
-.combo-list li:hover {
-    background: #f1f5f9;
-}
+
 .combo-list li.no-match {
     color: #94a3b8;
     font-style: italic;
     justify-content: center;
 }
+
 .combo-list::-webkit-scrollbar {
     width: 6px;
 }
+
 .combo-list::-webkit-scrollbar-track {
     background: #f1f5f9;
+    border-radius: 3px;
 }
+
 .combo-list::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 3px;
 }
+
+.field-error {
+    display: none;
+    color: #dc2626;
+    font-size: 0.8rem;
+    margin-top: 0.35rem;
+}
+
+.btn-submit {
+    width: 100%;
+    padding: 0.85rem;
+    font-size: 0.95rem;
+    margin-top: 0.5rem;
+    transition: background 0.15s;
+}
+
+@media (max-width: 768px) {
+    .request-layout {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
 
+<script id="users-data" type="application/json">{{ users_json | safe }}</script>
+<script id="rooms-data" type="application/json">{{ rooms_json | safe }}</script>
 <script>
 (function() {
-    var userData = [
-        {% for u in users %}
-        { id: "{{ u.id }}", label: "{{ u.name }} ({{ u.assigned_room }})" }{% if not loop.last %},{% endif %}
-        {% endfor %}
-    ];
-    var roomData = [
-        {% for r in rooms %}
-        { code: "{{ r.room_code }}", dept: "{{ r.department_name }}", label: "{{ r.room_code }} ({{ r.department_name }})" }{% if not loop.last %},{% endif %}
-        {% endfor %}
-    ];
+    var userData = JSON.parse(document.getElementById('users-data').textContent);
+    var roomData = JSON.parse(document.getElementById('rooms-data').textContent);
 
     var userLookup = {};
     for (var i = 0; i < userData.length; i++) {
-        userLookup[userData[i].label] = userData[i].id;
+        userLookup[userData[i].name] = userData[i].id;
     }
     var locLookup = {};
     for (var i = 0; i < roomData.length; i++) {
-        locLookup[roomData[i].code] = roomData[i].label;
+        locLookup[roomData[i].code] = roomData[i].code;
     }
 
     function buildUserList(filter) {
@@ -125,8 +267,10 @@
         var html = '';
         var count = 0;
         for (var i = 0; i < userData.length; i++) {
-            if (userData[i].label.toLowerCase().indexOf(filter) !== -1) {
-                html += '<li data-id="' + userData[i].id + '">' + userData[i].label + '</li>';
+            var u = userData[i];
+            if (u.name.toLowerCase().indexOf(filter) !== -1) {
+                var meta = u.role + (u.room ? ' - ' + u.room : '');
+                html += '<li data-id="' + u.id + '" data-label="' + u.name.replace(/"/g, '&quot;') + '"><span>' + u.name + '</span><span class="user-meta">' + meta + '</span></li>';
                 count++;
             }
         }
@@ -140,8 +284,9 @@
         var html = '';
         var count = 0;
         for (var i = 0; i < roomData.length; i++) {
-            if (roomData[i].label.toLowerCase().indexOf(filter) !== -1) {
-                html += '<li data-code="' + roomData[i].code + '"><span>' + roomData[i].code + '</span><span class="dept-tag">' + roomData[i].dept + '</span></li>';
+            if (roomData[i].code.toLowerCase().indexOf(filter) !== -1 ||
+                roomData[i].dept.toLowerCase().indexOf(filter) !== -1) {
+                html += '<li data-code="' + roomData[i].code.replace(/"/g, '&quot;') + '"><span>' + roomData[i].code + '</span><span class="dept-tag">' + roomData[i].dept + '</span></li>';
                 count++;
             }
         }
@@ -208,7 +353,7 @@
         e.preventDefault();
         var li = e.target.closest('li');
         if (!li || li.classList.contains('no-match')) return;
-        userInput.value = li.textContent;
+        userInput.value = li.getAttribute('data-label');
         userId.value = li.getAttribute('data-id');
         userError.style.display = 'none';
         userInput.setCustomValidity('');
@@ -233,8 +378,8 @@
     });
 
     document.getElementById('accessForm').addEventListener('submit', function(e) {
-        var userOk = userLookup.hasOwnProperty(userInput.value);
-        var locOk = locLookup.hasOwnProperty(locInput.value);
+        var userOk = Object.prototype.hasOwnProperty.call(userLookup, userInput.value);
+        var locOk = Object.prototype.hasOwnProperty.call(locLookup, locInput.value);
         if (!userOk) {
             e.preventDefault();
             userId.value = '';

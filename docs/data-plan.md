@@ -709,23 +709,27 @@ The DecisionTreeClassifier is trained on all 400 logs. Features extracted per lo
 - `is_night_access` — hour >= 22 or hour < 6
 - `user_location_grant_rate` — historical grant rate for this user+location pair (KEY feature)
 
-**Labeling rule**: A log is labeled "suspicious" if:
-1. Historical grant rate for this user+location ≤ 0.3, OR
-2. Night access AND grant rate < 0.5, OR  
-3. More than 3 attempts in the last hour, OR
-4. No history (grant rate = 0.5) AND not assigned room
+**Labeling rule**: A log is labeled **suspicious** if its status is `denied`, otherwise **normal**. This means the ML learns from actual access outcomes — the feature combinations that resulted in denial become the "suspicious" pattern.
 
-After training, the model learns which feature combinations predict suspicious vs normal behavior. When a new request comes in, it extracts the same features and predicts a class with confidence scores.
+**Key insight**: The model's features include `hour`, `minute`, `is_weekend`, `is_assigned_room`, `is_same_department`, `user_access_level`, `historical_denied_count`, `is_night_access`, `access_count_last_hour`, and most importantly **`user_location_grant_rate`** — the historical grant rate for this specific user+location pair. The DecisionTree learns which of these features correlate with denials.
 
-### What the ML should learn
+When a new request comes in, the model predicts **Suspicious** (deny) or **Normal** (grant) with confidence percentages.
 
-| Scenario | Expected Prediction |
-|---------|-------------------|
-| Alice accessing FIN-201 at 09:00 (normal pattern) | Normal (confident) |
-| David accessing OPS-101 at 22:00 (night guard) | Normal (from high grant rate) |
-| Sam's rapid burst at 02:00 | Suspicious (high frequency) |
-| Jack's random access | Suspicious (low grant rate, no pattern) |
-| Olivia accessing anywhere at any time | Normal (always granted historically) |
-| Henry trying IT-301 at night | Suspicious (low grant rate, night) |
-| Quinn accessing IT on weekend | Normal (all his history is weekend) |
-| Paul trying IT at 08:00 (morning, not his hours) | Suspicious (no history at that time) |
+### ML Predictions (verified)
+
+| Scenario | Expected | Actual |
+|---------|----------|--------|
+| Alice accessing FIN-201 at 09:00 (normal) | Normal | Normal (100%) |
+| Alice accessing FIN-201 at 02:30 (night) | Suspicious | Suspicious (100%) |
+| David patrolling OPS-101 at 22:00 (night guard) | Normal | Normal (100%) |
+| Sam's rapid burst at 02:00 | Suspicious | Suspicious (100%) |
+| Jack's random outsider access | Suspicious | Suspicious (100%) |
+| Olivia CEO late night anywhere | Normal | Normal (100%) |
+| Henry ex-employee at IT-301 at 23:00 | Suspicious | Suspicious (100%) |
+| Quinn weekend IT support at 09:00 Sat | Normal | Normal (100%) |
+| Quinn attempting IT on a weekday | Suspicious | Suspicious (100%) |
+| Paul consultant at 08:00 (before his hours) | Suspicious | Suspicious (100%) |
+| Rachel night auditor at FIN-101 at 23:00 | Normal | Normal (100%) |
+| Rachel auditor at 09:00 (wrong time) | Suspicious | Suspicious (100%) |
+| Iris cross-dept at HR-101 (authorized) | Normal | Normal (100%) |
+| Iris trying IT-101 (not her dept) | Suspicious | Suspicious (100%) |

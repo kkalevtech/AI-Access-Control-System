@@ -1,14 +1,14 @@
 from datetime import datetime
 from src.models import AccessLog
 from src.events import AccessEventArgs, SuspiciousBehaviorEventArgs
-from src.ai.analyzer import BehaviorAnalyzer
+from src.ai.analyzer import BehaviorAnalyzer, DEPT_PREFIX_MAP
 
 
 class AccessController:
-    def __init__(self, database, event_dispatcher):
+    def __init__(self, database, event_dispatcher, analyzer=None):
         self.database = database
         self.event_dispatcher = event_dispatcher
-        self.analyzer = BehaviorAnalyzer(database)
+        self.analyzer = analyzer if analyzer is not None else BehaviorAnalyzer(database)
 
     def _now_time(self):
         now = datetime.now()
@@ -50,7 +50,10 @@ class AccessController:
                     reason=analysis.get('reason', 'Suspicious behavior detected'),
                     timestamp=access_time
                 ))
-                deny_result = self.deny_access(user_id, location, analysis.get('reason', 'Suspicious behavior detected'), access_time, is_weekend)
+                deny_result = self.deny_access(
+                    user_id, location, analysis.get('reason', 'Suspicious behavior detected'),
+                    access_time, is_weekend
+                )
                 deny_result['classification'] = classification
                 deny_result['confidence_normal'] = analysis.get('confidence_normal', 0)
                 deny_result['confidence_suspicious'] = confidence_suspicious
@@ -63,11 +66,15 @@ class AccessController:
     def _process_basic_access(self, user, location, access_time, is_weekend=0):
         if user.assigned_room and location == user.assigned_room:
             return self.grant_access(user_id=user.id, location=location, access_time=access_time, is_weekend=is_weekend)
-        elif user.department and location.startswith(user.department):
-            return self.grant_access(user_id=user.id, location=location, access_time=access_time, is_weekend=is_weekend)
-        else:
-            reason = f"Location {location} not authorized for user"
-            return self.deny_access(user_id=user.id, location=location, reason=reason, access_time=access_time, is_weekend=is_weekend)
+
+        if user.departments:
+            loc_prefix = location.split('-')[0] if '-' in location else location
+            loc_dept = DEPT_PREFIX_MAP.get(loc_prefix, '')
+            if loc_dept in user.departments:
+                return self.grant_access(user_id=user.id, location=location, access_time=access_time, is_weekend=is_weekend)
+
+        reason = f"Location {location} not authorized for user"
+        return self.deny_access(user_id=user.id, location=location, reason=reason, access_time=access_time, is_weekend=is_weekend)
 
     def grant_access_with_analysis(self, user_id, location, access_time, analysis, is_weekend=0):
         log = AccessLog(
