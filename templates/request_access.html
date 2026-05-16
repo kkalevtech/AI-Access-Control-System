@@ -32,6 +32,12 @@
                 <small id="loc_error" class="field-error">Select a valid location from the list</small>
             </div>
 
+            <div class="form-group">
+                <label class="form-label" for="access_time">Time <span class="label-optional">(optional)</span></label>
+                <input type="time" id="access_time" name="access_time" class="form-input"
+                       value="{{ now }}">
+            </div>
+
             <button type="submit" class="btn btn-primary btn-submit">Submit Request</button>
         </form>
     </div>
@@ -228,6 +234,12 @@
     color: #dc2626;
     font-size: 0.8rem;
     margin-top: 0.35rem;
+}
+
+.label-optional {
+    font-weight: 400;
+    color: #94a3b8;
+    font-size: 0.8rem;
 }
 
 .btn-submit {
