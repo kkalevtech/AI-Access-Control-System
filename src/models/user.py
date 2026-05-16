@@ -1,10 +1,12 @@
 class User:
-    def __init__(self, id=None, name=None, department=None, access_level=1, assigned_room=None):
+    def __init__(self, id=None, name=None, department=None, access_level=1,
+                 assigned_room=None, assigned_room_id=None):
         self.id = id
         self.name = name
         self.department = department
         self.access_level = access_level
         self.assigned_room = assigned_room
+        self.assigned_room_id = assigned_room_id
 
     def __repr__(self):
         return f'User(id={self.id}, name="{self.name}", department="{self.department}", access_level={self.access_level}, assigned_room="{self.assigned_room}")'
@@ -15,7 +17,8 @@ class User:
             'name': self.name,
             'department': self.department,
             'access_level': self.access_level,
-            'assigned_room': self.assigned_room
+            'assigned_room': self.assigned_room,
+            'assigned_room_id': self.assigned_room_id
         }
 
     @classmethod
@@ -25,5 +28,6 @@ class User:
             name=data.get('name'),
             department=data.get('department'),
             access_level=data.get('access_level', 1),
-            assigned_room=data.get('assigned_room')
+            assigned_room=data.get('assigned_room'),
+            assigned_room_id=data.get('assigned_room_id')
         )

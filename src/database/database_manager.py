@@ -1,8 +1,16 @@
 import sqlite3
-from src.models import User, AccessLog, Alert
+from src.models import User, AccessLog, Department, Room
 
 
 class DatabaseManager:
+    ALL_ROOMS = ['FIN-101', 'FIN-102', 'FIN-201', 'FIN-202', 'FIN-301', 'FIN-302',
+                 'HR-101', 'HR-102', 'HR-201', 'HR-202', 'HR-301', 'HR-302',
+                 'IT-101', 'IT-102', 'IT-201', 'IT-202', 'IT-301', 'IT-302',
+                 'MKT-101', 'MKT-102', 'MKT-201', 'MKT-202', 'MKT-301', 'MKT-302',
+                 'OPS-101', 'OPS-102', 'OPS-201', 'OPS-202', 'OPS-301', 'OPS-302']
+
+    DEPARTMENTS = ['Finance', 'HR', 'IT', 'Marketing', 'Operations']
+
     def __init__(self, db_path="access_control.db"):
         self.db_path = db_path
         self.connection = None
@@ -11,9 +19,26 @@ class DatabaseManager:
     def connect(self):
         self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
+        self.connection.execute("PRAGMA foreign_keys = ON")
 
     def init_db(self):
         cursor = self.connection.cursor()
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS departments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS rooms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                room_code TEXT NOT NULL,
+                department_id INTEGER NOT NULL,
+                FOREIGN KEY (department_id) REFERENCES departments(id)
+            )
+        ''')
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
@@ -21,7 +46,9 @@ class DatabaseManager:
                 name TEXT NOT NULL,
                 department TEXT NOT NULL,
                 access_level INTEGER NOT NULL DEFAULT 1,
-                assigned_room TEXT
+                assigned_room TEXT,
+                assigned_room_id INTEGER,
+                FOREIGN KEY (assigned_room_id) REFERENCES rooms(id)
             )
         ''')
 
@@ -30,30 +57,117 @@ class DatabaseManager:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 access_time TEXT NOT NULL,
+                is_weekend INTEGER NOT NULL DEFAULT 0,
                 location TEXT NOT NULL,
+                room_id INTEGER,
                 status TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            )
-        ''')
-
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS alerts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                alert_type TEXT NOT NULL,
-                description TEXT,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users(id)
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (room_id) REFERENCES rooms(id)
             )
         ''')
 
         self.connection.commit()
 
-    def create_user(self, user):
+    # --- Departments ---
+
+    def create_department(self, department):
+        cursor = self.connection.cursor()
+        cursor.execute('INSERT INTO departments (name) VALUES (?)', (department.name,))
+        self.connection.commit()
+        return cursor.lastrowid
+
+    def get_all_departments(self):
+        cursor = self.connection.cursor()
+        cursor.execute('SELECT * FROM departments ORDER BY name')
+        rows = cursor.fetchall()
+        return [Department(id=row['id'], name=row['name']) for row in rows]
+
+    def get_department(self, department_id):
+        cursor = self.connection.cursor()
+        cursor.execute('SELECT * FROM departments WHERE id = ?', (department_id,))
+        row = cursor.fetchone()
+        if row:
+            return Department(id=row['id'], name=row['name'])
+        return None
+
+    # --- Rooms ---
+
+    def create_room(self, room):
         cursor = self.connection.cursor()
         cursor.execute(
-            'INSERT INTO users (name, department, access_level, assigned_room) VALUES (?, ?, ?, ?)',
-            (user.name, user.department, user.access_level, user.assigned_room)
+            'INSERT INTO rooms (room_code, department_id) VALUES (?, ?)',
+            (room.room_code, room.department_id)
+        )
+        self.connection.commit()
+        return cursor.lastrowid
+
+    def get_all_rooms(self):
+        cursor = self.connection.cursor()
+        cursor.execute('''
+            SELECT r.id, r.room_code, r.department_id, d.name as department_name
+            FROM rooms r
+            JOIN departments d ON r.department_id = d.id
+            ORDER BY r.room_code
+        ''')
+        rows = cursor.fetchall()
+        return [
+            Room(
+                id=row['id'],
+                room_code=row['room_code'],
+                department_id=row['department_id'],
+                department_name=row['department_name']
+            )
+            for row in rows
+        ]
+
+    def get_room(self, room_id):
+        cursor = self.connection.cursor()
+        cursor.execute('''
+            SELECT r.id, r.room_code, r.department_id, d.name as department_name
+            FROM rooms r
+            JOIN departments d ON r.department_id = d.id
+            WHERE r.id = ?
+        ''', (room_id,))
+        row = cursor.fetchone()
+        if row:
+            return Room(
+                id=row['id'],
+                room_code=row['room_code'],
+                department_id=row['department_id'],
+                department_name=row['department_name']
+            )
+        return None
+
+    def get_room_by_code(self, room_code):
+        cursor = self.connection.cursor()
+        cursor.execute('''
+            SELECT r.id, r.room_code, r.department_id, d.name as department_name
+            FROM rooms r
+            JOIN departments d ON r.department_id = d.id
+            WHERE r.room_code = ?
+        ''', (room_code,))
+        row = cursor.fetchone()
+        if row:
+            return Room(
+                id=row['id'],
+                room_code=row['room_code'],
+                department_id=row['department_id'],
+                department_name=row['department_name']
+            )
+        return None
+
+    # --- Users ---
+
+    def create_user(self, user):
+        cursor = self.connection.cursor()
+        assigned_room_id = user.assigned_room_id
+        if assigned_room_id is None and user.assigned_room:
+            room = self.get_room_by_code(user.assigned_room)
+            if room:
+                assigned_room_id = room.id
+        cursor.execute(
+            'INSERT INTO users (name, department, access_level, assigned_room, assigned_room_id) VALUES (?, ?, ?, ?, ?)',
+            (user.name, user.department, user.access_level, user.assigned_room, assigned_room_id)
         )
         self.connection.commit()
         return cursor.lastrowid
@@ -68,7 +182,8 @@ class DatabaseManager:
                 name=row['name'],
                 department=row['department'],
                 access_level=row['access_level'],
-                assigned_room=row['assigned_room']
+                assigned_room=row['assigned_room'],
+                assigned_room_id=row['assigned_room_id']
             )
         return None
 
@@ -82,7 +197,8 @@ class DatabaseManager:
                 name=row['name'],
                 department=row['department'],
                 access_level=row['access_level'],
-                assigned_room=row['assigned_room']
+                assigned_room=row['assigned_room'],
+                assigned_room_id=row['assigned_room_id']
             )
             for row in rows
         ]
@@ -102,11 +218,18 @@ class DatabaseManager:
         self.connection.commit()
         return cursor.rowcount > 0
 
+    # --- Access Logs ---
+
     def create_access_log(self, log):
         cursor = self.connection.cursor()
+        room_id = log.room_id
+        if room_id is None and log.location:
+            room = self.get_room_by_code(log.location)
+            if room:
+                room_id = room.id
         cursor.execute(
-            'INSERT INTO access_logs (user_id, access_time, location, status) VALUES (?, ?, ?, ?)',
-            (log.user_id, log.access_time, log.location, log.status)
+            'INSERT INTO access_logs (user_id, access_time, is_weekend, location, room_id, status) VALUES (?, ?, ?, ?, ?, ?)',
+            (log.user_id, log.access_time, log.is_weekend, log.location, room_id, log.status)
         )
         self.connection.commit()
         return cursor.lastrowid
@@ -120,8 +243,10 @@ class DatabaseManager:
                 id=row['id'],
                 user_id=row['user_id'],
                 access_time=row['access_time'],
+                is_weekend=row['is_weekend'],
                 location=row['location'],
-                status=row['status']
+                status=row['status'],
+                room_id=row['room_id']
             )
         return None
 
@@ -134,8 +259,10 @@ class DatabaseManager:
                 id=row['id'],
                 user_id=row['user_id'],
                 access_time=row['access_time'],
+                is_weekend=row['is_weekend'],
                 location=row['location'],
-                status=row['status']
+                status=row['status'],
+                room_id=row['room_id']
             )
             for row in rows
         ]
@@ -149,8 +276,10 @@ class DatabaseManager:
                 id=row['id'],
                 user_id=row['user_id'],
                 access_time=row['access_time'],
+                is_weekend=row['is_weekend'],
                 location=row['location'],
-                status=row['status']
+                status=row['status'],
+                room_id=row['room_id']
             )
             for row in rows
         ]
@@ -158,65 +287,6 @@ class DatabaseManager:
     def delete_access_log(self, log_id):
         cursor = self.connection.cursor()
         cursor.execute('DELETE FROM access_logs WHERE id = ?', (log_id,))
-        self.connection.commit()
-        return cursor.rowcount > 0
-
-    def create_alert(self, alert):
-        cursor = self.connection.cursor()
-        cursor.execute(
-            'INSERT INTO alerts (user_id, alert_type, description, created_at) VALUES (?, ?, ?, ?)',
-            (alert.user_id, alert.alert_type, alert.description, alert.created_at)
-        )
-        self.connection.commit()
-        return cursor.lastrowid
-
-    def get_alert(self, alert_id):
-        cursor = self.connection.cursor()
-        cursor.execute('SELECT * FROM alerts WHERE id = ?', (alert_id,))
-        row = cursor.fetchone()
-        if row:
-            return Alert(
-                id=row['id'],
-                user_id=row['user_id'],
-                alert_type=row['alert_type'],
-                description=row['description'],
-                created_at=row['created_at']
-            )
-        return None
-
-    def get_all_alerts(self):
-        cursor = self.connection.cursor()
-        cursor.execute('SELECT * FROM alerts')
-        rows = cursor.fetchall()
-        return [
-            Alert(
-                id=row['id'],
-                user_id=row['user_id'],
-                alert_type=row['alert_type'],
-                description=row['description'],
-                created_at=row['created_at']
-            )
-            for row in rows
-        ]
-
-    def get_user_alerts(self, user_id):
-        cursor = self.connection.cursor()
-        cursor.execute('SELECT * FROM alerts WHERE user_id = ?', (user_id,))
-        rows = cursor.fetchall()
-        return [
-            Alert(
-                id=row['id'],
-                user_id=row['user_id'],
-                alert_type=row['alert_type'],
-                description=row['description'],
-                created_at=row['created_at']
-            )
-            for row in rows
-        ]
-
-    def delete_alert(self, alert_id):
-        cursor = self.connection.cursor()
-        cursor.execute('DELETE FROM alerts WHERE id = ?', (alert_id,))
         self.connection.commit()
         return cursor.rowcount > 0
 
@@ -232,6 +302,19 @@ class DatabaseManager:
     def close(self):
         if self.connection:
             self.connection.close()
+
+    def get_all_locations(self):
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute('SELECT room_code FROM rooms ORDER BY room_code')
+            rows = cursor.fetchall()
+            if rows:
+                return [row['room_code'] for row in rows]
+        except Exception:
+            pass
+        return list(self.ALL_ROOMS)
+
+    # --- Stats helpers ---
 
     def get_user_access_count(self, user_id):
         cursor = self.connection.cursor()
@@ -268,11 +351,11 @@ class DatabaseManager:
             'denied': row['denied'] or 0
         }
 
-    def get_access_logs_by_date_range(self, start_date, end_date):
+    def get_access_logs_by_time_range(self, start_time, end_time):
         cursor = self.connection.cursor()
         cursor.execute(
             'SELECT * FROM access_logs WHERE access_time >= ? AND access_time <= ?',
-            (start_date, end_date)
+            (start_time, end_time)
         )
         rows = cursor.fetchall()
         return [
@@ -280,8 +363,10 @@ class DatabaseManager:
                 id=row['id'],
                 user_id=row['user_id'],
                 access_time=row['access_time'],
+                is_weekend=row['is_weekend'],
                 location=row['location'],
-                status=row['status']
+                status=row['status'],
+                room_id=row['room_id']
             )
             for row in rows
         ]
@@ -301,18 +386,17 @@ class DatabaseManager:
             for row in rows
         ]
 
-    def get_suspicious_users(self, days=7):
+    def get_suspicious_users(self, days=None):
         cursor = self.connection.cursor()
         cursor.execute('''
             SELECT al.user_id, u.name, COUNT(*) as denied_count
             FROM access_logs al
             JOIN users u ON al.user_id = u.id
             WHERE al.status = 'denied'
-            AND datetime(al.access_time) >= datetime('now', ? || ' days')
             GROUP BY al.user_id
             HAVING denied_count >= 3
             ORDER BY denied_count DESC
-        ''', (f'-{days}',))
+        ''')
         rows = cursor.fetchall()
         return [
             {'user_id': row['user_id'], 'name': row['name'], 'denied_count': row['denied_count']}
