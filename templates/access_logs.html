@@ -9,21 +9,21 @@
     <table>
         <thead>
             <tr>
-                <th>ID</th>
                 <th>User</th>
+                <th>Time</th>
+                <th>Weekend</th>
                 <th>Location</th>
                 <th>Status</th>
-                <th>Time</th>
             </tr>
         </thead>
         <tbody>
             {% for log in logs %}
             <tr>
-                <td>{{ log.id }}</td>
                 <td><a href="{{ url_for('users') }}" class="user-link">{{ users[log.user_id] if log.user_id in users else 'User ' ~ log.user_id }}</a></td>
+                <td>{{ log.access_time }}</td>
+                <td>{{ 'Yes' if log.is_weekend else 'No' }}</td>
                 <td>{{ log.location }}</td>
                 <td><span class="status-badge status-{{ log.status }}">{{ log.status }}</span></td>
-                <td>{{ log.access_time[:19] }}</td>
             </tr>
             {% endfor %}
         </tbody>

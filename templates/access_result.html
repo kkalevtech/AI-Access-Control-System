@@ -14,7 +14,7 @@
     <div style="display: grid; gap: 1rem;">
         <div><strong>User ID:</strong> {{ result.user_id }}</div>
         <div><strong>Location:</strong> {{ result.location }}</div>
-        <div><strong>Time:</strong> {{ result.timestamp[:19] }}</div>
+        <div><strong>Time:</strong> {{ result.timestamp }}</div>
         {% if result.classification %}
         <div><strong>ML Classification:</strong> {{ result.classification }}</div>
         <div><strong>Confidence:</strong> {{ "%.1f"|format(result.get('confidence_normal', 0)) }}% Normal, {{ "%.1f"|format(result.get('confidence_suspicious', 0)) }}% Suspicious</div>

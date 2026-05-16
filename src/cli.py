@@ -72,14 +72,16 @@ class CLI:
         status = args[2]
 
         from datetime import datetime
-        access_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now()
+        access_time = now.strftime("%H:%M:%S")
+        is_weekend = 1 if now.weekday() >= 5 else 0
 
         log = type('Log', (), {
             'user_id': user_id,
             'access_time': access_time,
+            'is_weekend': is_weekend,
             'location': location,
             'status': status,
-            'attempts_count': 1
         })()
 
         log_id = self.db.create_access_log(log)
@@ -96,10 +98,10 @@ class CLI:
             print("No access logs found.")
             return
 
-        print(f"{'ID':<5} {'User ID':<8} {'Access Time':<20} {'Location':<15} {'Status':<10} {'Attempts'}")
-        print("-" * 75)
+        print(f"{'ID':<5} {'User ID':<8} {'Access Time':<12} {'Location':<15} {'Status':<10}")
+        print("-" * 55)
         for log in logs:
-            print(f"{log.id:<5} {log.user_id:<8} {log.access_time:<20} {log.location:<15} {log.status:<10} {log.attempts_count}")
+            print(f"{log.id:<5} {log.user_id:<8} {log.access_time:<12} {log.location:<15} {log.status:<10}")
 
     def request_access(self, args):
         if len(args) < 2:
@@ -118,26 +120,9 @@ class CLI:
             print(f"ACCESS DENIED: User {user_id} to {location}")
             print(f"Reason: {result['reason']}")
 
-    def list_alerts(self, args):
-        if args:
-            user_id = int(args[0])
-            alerts = self.db.get_user_alerts(user_id)
-        else:
-            alerts = self.db.get_all_alerts()
-
-        if not alerts:
-            print("No alerts found.")
-            return
-
-        print(f"{'ID':<5} {'User ID':<8} {'Alert Type':<20} {'Description':<30} {'Created At'}")
-        print("-" * 90)
-        for alert in alerts:
-            desc = alert.description[:27] + "..." if alert.description and len(alert.description) > 30 else alert.description or ""
-            print(f"{alert.id:<5} {alert.user_id:<8} {alert.alert_type:<20} {desc:<30} {alert.created_at}")
-
     def run(self):
         print("Access Control System CLI")
-        print("Commands: add_user, list_users, add_access_log, list_access_logs, request_access, list_alerts, exit")
+        print("Commands: add_user, list_users, add_access_log, list_access_logs, request_access, exit")
 
         while True:
             try:
@@ -157,8 +142,6 @@ class CLI:
                     self.list_access_logs(args)
                 elif cmd == "request_access":
                     self.request_access(args)
-                elif cmd == "list_alerts":
-                    self.list_alerts(args)
                 elif cmd == "exit":
                     print("Exiting...")
                     break

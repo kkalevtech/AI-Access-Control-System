@@ -6,23 +6,245 @@
 </div>
 
 <div class="card" style="max-width: 500px;">
-    <form method="post" action="{{ url_for('request_access') }}">
+    <form method="post" action="{{ url_for('request_access') }}" id="accessForm" novalidate>
         <div class="form-group">
-            <label class="form-label" for="user_id">Select User</label>
-            <select name="user_id" id="user_id" class="form-select" required>
-                <option value="">-- Select User --</option>
-                {% for user in users %}
-                <option value="{{ user.id }}">{{ user.name }} ({{ user.assigned_room }})</option>
-                {% endfor %}
-            </select>
+            <label class="form-label" for="user_input">Select User</label>
+            <div class="combo-wrap">
+                <input type="text" id="user_input" class="form-input combo-input"
+                       placeholder="Type to search users..." autocomplete="off" required>
+                <input type="hidden" name="user_id" id="user_id" value="">
+                <ul class="combo-list" id="user_list"></ul>
+            </div>
+            <small id="user_error" class="field-error" style="color: #dc2626; font-size: 0.8rem; display: none;">
+                Please select a valid user from the list
+            </small>
         </div>
-        
+
         <div class="form-group">
-            <label class="form-label" for="location">Location</label>
-            <input type="text" name="location" id="location" class="form-input" placeholder="e.g., IT-101" required>
+            <label class="form-label" for="loc_input">Location</label>
+            <div class="combo-wrap">
+                <input type="text" id="loc_input" name="location" class="form-input combo-input"
+                       placeholder="Type to search locations..." autocomplete="off" required>
+                <ul class="combo-list" id="loc_list"></ul>
+            </div>
+            <small id="loc_error" class="field-error" style="color: #dc2626; font-size: 0.8rem; display: none;">
+                Please select a valid location from the list
+            </small>
         </div>
-        
+
         <button type="submit" class="btn btn-primary">Request Access</button>
     </form>
 </div>
+
+<style>
+.combo-wrap {
+    position: relative;
+}
+.combo-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 180px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 999;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: none;
+}
+.combo-list li {
+    padding: 0.5rem 0.75rem;
+    cursor: default;
+    font-size: 0.875rem;
+    color: #1e293b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.combo-list li .dept-tag {
+    font-size: 0.7rem;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+}
+.combo-list li.active {
+    background: #eff6ff;
+}
+.combo-list li:hover {
+    background: #f1f5f9;
+}
+.combo-list li.no-match {
+    color: #94a3b8;
+    font-style: italic;
+    justify-content: center;
+}
+.combo-list::-webkit-scrollbar {
+    width: 6px;
+}
+.combo-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+.combo-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+</style>
+
+<script>
+(function() {
+    var userData = [
+        {% for u in users %}
+        { id: "{{ u.id }}", label: "{{ u.name }} ({{ u.assigned_room }})" }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    var roomData = [
+        {% for r in rooms %}
+        { code: "{{ r.room_code }}", dept: "{{ r.department_name }}", label: "{{ r.room_code }} ({{ r.department_name }})" }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    var userLookup = {};
+    for (var i = 0; i < userData.length; i++) {
+        userLookup[userData[i].label] = userData[i].id;
+    }
+    var locLookup = {};
+    for (var i = 0; i < roomData.length; i++) {
+        locLookup[roomData[i].code] = roomData[i].label;
+    }
+
+    function buildUserList(filter) {
+        var el = document.getElementById('user_list');
+        filter = (filter || '').toLowerCase();
+        var html = '';
+        var count = 0;
+        for (var i = 0; i < userData.length; i++) {
+            if (userData[i].label.toLowerCase().indexOf(filter) !== -1) {
+                html += '<li data-id="' + userData[i].id + '">' + userData[i].label + '</li>';
+                count++;
+            }
+        }
+        if (!count) html = '<li class="no-match">No matching users</li>';
+        el.innerHTML = html;
+    }
+
+    function buildLocList(filter) {
+        var el = document.getElementById('loc_list');
+        filter = (filter || '').toLowerCase();
+        var html = '';
+        var count = 0;
+        for (var i = 0; i < roomData.length; i++) {
+            if (roomData[i].label.toLowerCase().indexOf(filter) !== -1) {
+                html += '<li data-code="' + roomData[i].code + '"><span>' + roomData[i].code + '</span><span class="dept-tag">' + roomData[i].dept + '</span></li>';
+                count++;
+            }
+        }
+        if (!count) html = '<li class="no-match">No matching locations</li>';
+        el.innerHTML = html;
+    }
+
+    function openOnFocus(input, list, build) {
+        var hideTimer = null;
+        input.addEventListener('focus', function() {
+            clearTimeout(hideTimer);
+            build(input.value);
+            list.style.display = 'block';
+        });
+        input.addEventListener('blur', function() {
+            hideTimer = setTimeout(function() { list.style.display = 'none'; }, 180);
+        });
+        input.addEventListener('input', function() {
+            build(input.value);
+            list.style.display = 'block';
+        });
+        input.addEventListener('keydown', function(e) {
+            var items = list.querySelectorAll('li:not(.no-match)');
+            var idx = -1;
+            for (var j = 0; j < items.length; j++) {
+                if (items[j].classList.contains('active')) { idx = j; break; }
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!items.length) return;
+                for (var j = 0; j < items.length; j++) items[j].classList.remove('active');
+                var next = (idx + 1) % items.length;
+                items[next].classList.add('active');
+                items[next].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!items.length) return;
+                for (var j = 0; j < items.length; j++) items[j].classList.remove('active');
+                var prev = (idx - 1 + items.length) % items.length;
+                items[prev].classList.add('active');
+                items[prev].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+                var active = list.querySelector('li.active');
+                if (active) {
+                    e.preventDefault();
+                    active.click();
+                }
+            } else if (e.key === 'Escape') {
+                list.style.display = 'none';
+            }
+        });
+    }
+
+    var userInput = document.getElementById('user_input');
+    var userId = document.getElementById('user_id');
+    var userList = document.getElementById('user_list');
+    var userError = document.getElementById('user_error');
+
+    var locInput = document.getElementById('loc_input');
+    var locList = document.getElementById('loc_list');
+    var locError = document.getElementById('loc_error');
+
+    userList.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        var li = e.target.closest('li');
+        if (!li || li.classList.contains('no-match')) return;
+        userInput.value = li.textContent;
+        userId.value = li.getAttribute('data-id');
+        userError.style.display = 'none';
+        userInput.setCustomValidity('');
+        userList.style.display = 'none';
+    });
+
+    locList.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        var li = e.target.closest('li');
+        if (!li || li.classList.contains('no-match')) return;
+        locInput.value = li.getAttribute('data-code');
+        locError.style.display = 'none';
+        locInput.setCustomValidity('');
+        locList.style.display = 'none';
+    });
+
+    openOnFocus(userInput, userList, buildUserList);
+    openOnFocus(locInput, locList, buildLocList);
+
+    userInput.addEventListener('input', function() {
+        userId.value = '';
+    });
+
+    document.getElementById('accessForm').addEventListener('submit', function(e) {
+        var userOk = userLookup.hasOwnProperty(userInput.value);
+        var locOk = locLookup.hasOwnProperty(locInput.value);
+        if (!userOk) {
+            e.preventDefault();
+            userId.value = '';
+            userError.style.display = 'block';
+        }
+        if (!locOk) {
+            e.preventDefault();
+            locError.style.display = 'block';
+        }
+    });
+})();
+</script>
 {% endblock %}

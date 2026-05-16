@@ -28,14 +28,12 @@ def index():
 def dashboard():
     users = db.get_all_users()
     logs = db.get_all_access_logs()
-    alerts = db.get_all_alerts()
     
     total_users = len(users)
     total_logs = len(logs)
     granted = sum(1 for l in logs if l.status == 'granted')
     denied = total_logs - granted
     
-    # Recent activity
     recent = logs[-10:] if logs else []
     
     return render_template('dashboard.html',
@@ -43,7 +41,6 @@ def dashboard():
                      total_logs=total_logs,
                      granted=granted,
                      denied=denied,
-                     recent_alerts=len(alerts),
                      recent=recent)
 
 
@@ -68,7 +65,8 @@ def request_access():
         result = access_controller.request_access(user_id, location)
         return render_template('access_result.html', result=result)
     users = db.get_all_users()
-    return render_template('request_access.html', users=users)
+    rooms = db.get_all_rooms()
+    return render_template('request_access.html', users=users, rooms=rooms)
 
 
 @app.route('/reset-db', methods=['POST'])

@@ -22,10 +22,7 @@
         <div class="stat-label">Denied</div>
         <div class="stat-value danger">{{ denied }}</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Security Alerts</div>
-        <div class="stat-value warning">{{ recent_alerts }}</div>
-    </div>
+
 </div>
 
 <div class="card">
@@ -50,7 +47,7 @@
                 <td>{{ log.user_id }}</td>
                 <td>{{ log.location }}</td>
                 <td><span class="status-badge status-{{ log.status }}">{{ log.status }}</span></td>
-                <td>{{ log.access_time[:19] }}</td>
+                <td>{{ log.access_time }}</td>
             </tr>
             {% endfor %}
         </tbody>

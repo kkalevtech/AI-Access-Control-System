@@ -52,7 +52,7 @@ class FileManager:
     def export_access_logs_to_csv(self, filepath, logs):
         if not logs:
             return
-        fieldnames = ['id', 'user_id', 'access_time', 'location', 'status', 'attempts_count']
+        fieldnames = ['id', 'user_id', 'access_time', 'is_weekend', 'location', 'status', 'room_id']
         data = [log.to_dict() for log in logs]
         self.write_csv(filepath, data, fieldnames)
 
@@ -65,10 +65,6 @@ class FileManager:
         data = self.read_csv(filepath)
         from src.models import AccessLog
         return [AccessLog.from_dict(log_data) for log_data in data]
-
-    def export_alerts_to_json(self, filepath, alerts):
-        data = [alert.to_dict() for alert in alerts]
-        self.write_json(filepath, data)
 
     def backup_database(self, db_manager, backup_path):
         try:
