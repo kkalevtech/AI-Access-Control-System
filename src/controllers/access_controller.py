@@ -10,12 +10,15 @@ class AccessController:
         self.event_dispatcher = event_dispatcher
         self.analyzer = BehaviorAnalyzer(database)
 
+    def _now_time(self):
+        now = datetime.now()
+        return now.strftime('%H:%M:%S'), 1 if now.weekday() >= 5 else 0
+
     def request_access(self, user_id, location, access_time=None):
         if access_time is None:
-            access_time = datetime.now().isoformat()
-
-        if not isinstance(access_time, str):
-            access_time = access_time.isoformat()
+            access_time, is_weekend = self._now_time()
+        else:
+            is_weekend = 1 if datetime.now().weekday() >= 5 else 0
 
         user = self.database.get_user(user_id)
         if not user:
@@ -27,14 +30,15 @@ class AccessController:
                 'reason': 'User not found',
                 'user_id': user_id,
                 'location': location,
-                'timestamp': access_time
+                'timestamp': access_time,
+                'is_weekend': is_weekend
             }
 
         if self.analyzer.is_trained:
-            analysis = self.analyzer.analyze(user_id, access_time, location)
+            analysis = self.analyzer.analyze(user_id, access_time, location, is_weekend)
 
             if 'error' in analysis:
-                return self._process_basic_access(user, location, access_time)
+                return self._process_basic_access(user, location, access_time, is_weekend)
 
             classification = analysis['classification']
             confidence_suspicious = analysis.get('confidence_suspicious', 0)
@@ -46,29 +50,30 @@ class AccessController:
                     reason=analysis.get('reason', 'Suspicious behavior detected'),
                     timestamp=access_time
                 ))
-                deny_result = self.deny_access(user_id, location, analysis.get('reason', 'Suspicious behavior detected'), access_time)
+                deny_result = self.deny_access(user_id, location, analysis.get('reason', 'Suspicious behavior detected'), access_time, is_weekend)
                 deny_result['classification'] = classification
                 deny_result['confidence_normal'] = analysis.get('confidence_normal', 0)
                 deny_result['confidence_suspicious'] = confidence_suspicious
                 return deny_result
 
-            return self.grant_access_with_analysis(user_id, location, access_time, analysis)
+            return self.grant_access_with_analysis(user_id, location, access_time, analysis, is_weekend)
         else:
-            return self._process_basic_access(user, location, access_time)
+            return self._process_basic_access(user, location, access_time, is_weekend)
 
-    def _process_basic_access(self, user, location, access_time):
+    def _process_basic_access(self, user, location, access_time, is_weekend=0):
         if user.assigned_room and location == user.assigned_room:
-            return self.grant_access(user_id=user.id, location=location, access_time=access_time)
+            return self.grant_access(user_id=user.id, location=location, access_time=access_time, is_weekend=is_weekend)
         elif user.department and location.startswith(user.department):
-            return self.grant_access(user_id=user.id, location=location, access_time=access_time)
+            return self.grant_access(user_id=user.id, location=location, access_time=access_time, is_weekend=is_weekend)
         else:
             reason = f"Location {location} not authorized for user"
-            return self.deny_access(user_id=user.id, location=location, reason=reason, access_time=access_time)
+            return self.deny_access(user_id=user.id, location=location, reason=reason, access_time=access_time, is_weekend=is_weekend)
 
-    def grant_access_with_analysis(self, user_id, location, access_time, analysis):
+    def grant_access_with_analysis(self, user_id, location, access_time, analysis, is_weekend=0):
         log = AccessLog(
             user_id=user_id,
             access_time=access_time,
+            is_weekend=is_weekend,
             location=location,
             status='granted'
         )
@@ -81,13 +86,15 @@ class AccessController:
             'reason': analysis.get('reason', 'Access granted'),
             'user_id': user_id,
             'location': location,
-            'timestamp': access_time
+            'timestamp': access_time,
+            'is_weekend': is_weekend
         }
 
-    def grant_access(self, user_id, location, access_time):
+    def grant_access(self, user_id, location, access_time, is_weekend=0):
         log = AccessLog(
             user_id=user_id,
             access_time=access_time,
+            is_weekend=is_weekend,
             location=location,
             status='granted'
         )
@@ -100,13 +107,15 @@ class AccessController:
             'reason': 'Access granted',
             'user_id': user_id,
             'location': location,
-            'timestamp': access_time
+            'timestamp': access_time,
+            'is_weekend': is_weekend
         }
 
-    def deny_access(self, user_id, location, reason, access_time):
+    def deny_access(self, user_id, location, reason, access_time, is_weekend=0):
         log = AccessLog(
             user_id=user_id,
             access_time=access_time,
+            is_weekend=is_weekend,
             location=location,
             status='denied'
         )
@@ -125,5 +134,6 @@ class AccessController:
             'reason': reason,
             'user_id': user_id,
             'location': location,
-            'timestamp': access_time
+            'timestamp': access_time,
+            'is_weekend': is_weekend
         }

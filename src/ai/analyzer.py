@@ -10,16 +10,16 @@ class BehaviorAnalyzer:
         self.model = DecisionTreeClassifier(random_state=42)
         self.is_trained = False
 
-    def extract_features(self, user_id, access_time, location):
-        if isinstance(access_time, str):
-            access_dt = datetime.fromisoformat(access_time.replace('Z', '+00:00'))
+    def extract_features(self, user_id, access_time, location, is_weekend=0):
+        if isinstance(access_time, str) and ':' in access_time:
+            parts = access_time.split(':')
+            hour = int(parts[0])
+            minute = int(parts[1])
         else:
-            access_dt = access_time
+            hour = 12
+            minute = 0
 
-        hour = access_dt.hour
-        minute = access_dt.minute
-        day_of_week = access_dt.weekday()
-        is_weekend = 1 if day_of_week >= 5 else 0
+        day_of_week = 6 if is_weekend else 0
 
         access_count_last_hour = self.get_access_frequency(user_id, 60)
 
@@ -55,13 +55,13 @@ class BehaviorAnalyzer:
             'user_location_grant_rate': user_location_grant_rate
         }
 
-    def analyze(self, user_id, access_time, location):
+    def analyze(self, user_id, access_time, location, is_weekend=0):
         if not self.is_trained:
             return {
                 'error': 'Model not trained. Call train_from_database() first.'
             }
 
-        features = self.extract_features(user_id, access_time, location)
+        features = self.extract_features(user_id, access_time, location, is_weekend)
         feature_array = [
             features['hour'],
             features['minute'],
@@ -209,7 +209,7 @@ class BehaviorAnalyzer:
 
             for log in all_logs:
                 try:
-                    features = self.extract_features(log.user_id, log.access_time, log.location)
+                    features = self.extract_features(log.user_id, log.access_time, log.location, getattr(log, 'is_weekend', 0))
 
                     # Labeling rules - what makes something "suspicious"
                     # Key: lower grant rate = more suspicious

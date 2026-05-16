@@ -1,6 +1,13 @@
-from datetime import datetime
 from functools import reduce
 from collections import defaultdict
+
+
+def _parse_time(access_time):
+    try:
+        parts = access_time.split(':')
+        return int(parts[0]), int(parts[1]), int(parts[2])
+    except (ValueError, IndexError, AttributeError):
+        return None, None, None
 
 
 def analyze_access_patterns(access_logs):
@@ -25,11 +32,11 @@ def analyze_access_patterns(access_logs):
 
     by_day = defaultdict(int)
     for log in access_logs:
-        try:
-            dt = datetime.fromisoformat(log.access_time.replace('Z', '+00:00'))
-            by_day[dt.strftime('%A')] += 1
-        except (ValueError, AttributeError):
-            by_day['Unknown'] += 1
+        is_weekend = getattr(log, 'is_weekend', 0)
+        if is_weekend:
+            by_day['Weekend'] += 1
+        else:
+            by_day['Weekday'] += 1
 
     return {
         'total': total,
@@ -47,11 +54,9 @@ def get_peak_access_hours(access_logs):
 
     hour_counts = defaultdict(int)
     for log in access_logs:
-        try:
-            dt = datetime.fromisoformat(log.access_time.replace('Z', '+00:00'))
-            hour_counts[dt.hour] += 1
-        except (ValueError, AttributeError):
-            continue
+        hour, _, _ = _parse_time(log.access_time)
+        if hour is not None:
+            hour_counts[hour] += 1
 
     hour_list = list(map(lambda x: {'hour': x[0], 'count': x[1]}, hour_counts.items()))
     sorted_hours = sorted(hour_list, key=lambda x: x['count'], reverse=True)
@@ -95,11 +100,9 @@ def detect_anomalies(access_logs):
         if len(user_logs) >= 3:
             hours = []
             for log in user_logs:
-                try:
-                    dt = datetime.fromisoformat(log.access_time.replace('Z', '+00:00'))
-                    hours.append(dt.hour)
-                except (ValueError, AttributeError):
-                    continue
+                hour, _, _ = _parse_time(log.access_time)
+                if hour is not None:
+                    hours.append(hour)
 
             if hours:
                 unique_hours = len(set(hours))
@@ -117,8 +120,11 @@ def detect_anomalies(access_logs):
     }
 
 
-def generate_access_report(db_manager, start_date, end_date):
-    logs = db_manager.get_access_logs_by_date_range(start_date, end_date)
+def generate_access_report(db_manager, start_time=None, end_time=None):
+    if start_time and end_time:
+        logs = db_manager.get_access_logs_by_time_range(start_time, end_time)
+    else:
+        logs = db_manager.get_all_access_logs()
 
     patterns = analyze_access_patterns(logs)
     peak_hours = get_peak_access_hours(logs)
