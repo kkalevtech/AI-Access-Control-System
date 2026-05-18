@@ -1,28 +1,236 @@
 {% extends "base.html" %}
 {% block title %}Access Result - AI Access Control{% endblock %}
 {% block content %}
+<style>
+.result-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 2.5rem 2rem;
+    border-radius: 16px;
+    margin-bottom: 1.5rem;
+}
+.result-hero.granted {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border: 2px solid #86efac;
+}
+.result-hero.denied {
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    border: 2px solid #fca5a5;
+}
+.result-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+.result-hero.granted .result-icon {
+    background: #16a34a;
+    color: #fff;
+}
+.result-hero.denied .result-icon {
+    background: #dc2626;
+    color: #fff;
+}
+.result-status {
+    font-size: 1.75rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+}
+.result-hero.granted .result-status { color: #166534; }
+.result-hero.denied .result-status { color: #991b1b; }
+.result-summary {
+    font-size: 0.95rem;
+    color: #475569;
+    max-width: 500px;
+    line-height: 1.6;
+}
+.result-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.detail-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.detail-card.full {
+    grid-column: 1 / -1;
+}
+.detail-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.35rem;
+}
+.detail-value {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #1e293b;
+}
+.confidence-bar-wrap {
+    margin-top: 0.5rem;
+}
+.confidence-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    margin-bottom: 0.2rem;
+}
+.confidence-track {
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.confidence-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s;
+}
+.confidence-fill.normal { background: #16a34a; }
+.confidence-fill.suspicious { background: #dc2626; }
+.reason-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.reason-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+.reason-item.denied {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+}
+.reason-item.granted {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+}
+.reason-item .reason-bullet {
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.reason-item.denied .reason-bullet { color: #dc2626; }
+.reason-item.granted .reason-bullet { color: #16a34a; }
+.action-bar {
+    display: flex;
+    gap: 0.75rem;
+}
+.action-bar .btn {
+    flex: 1;
+    text-align: center;
+}
+</style>
+
 <div class="page-header">
     <h1 class="page-title">Access Request Result</h1>
 </div>
 
-<div class="result-box {% if result.granted %}result-granted{% else %}result-denied{% endif %}">
-    <div class="result-title">{% if result.granted %}Access Granted{% else %}Access Denied{% endif %}</div>
-    <p>{{ result.reason }}</p>
+<div class="result-hero {% if result.granted %}granted{% else %}denied{% endif %}">
+    <div class="result-icon">{% if result.granted %}&#10003;{% else %}&#10007;{% endif %}</div>
+    <div class="result-status">{% if result.granted %}Access Granted{% else %}Access Denied{% endif %}</div>
+    <div class="result-summary">{% if result.granted %}Access pattern appears normal{% else %}Access pattern appears suspicious{% endif %}</div>
 </div>
 
-<div class="card" style="max-width: 500px; margin-top: 1.5rem;">
-    <div style="display: grid; gap: 1rem;">
-        <div><strong>User ID:</strong> {{ result.user_id }}</div>
-        <div><strong>Location:</strong> {{ result.location }}</div>
-        <div><strong>Time:</strong> {{ result.timestamp }}</div>
-        {% if result.classification %}
-        <div><strong>ML Classification:</strong> {{ result.classification }}</div>
-        <div><strong>Confidence:</strong> {{ "%.1f"|format(result.get('confidence_normal', 0)) }}% Normal, {{ "%.1f"|format(result.get('confidence_suspicious', 0)) }}% Suspicious</div>
+<div class="result-details">
+    <div class="detail-card">
+        <div class="detail-label">User</div>
+        <div class="detail-value">{{ result.get('user_name', 'User #' ~ result.user_id) }}</div>
+        <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.2rem;">
+            {{ result.get('user_role', '') }}{% if result.get('user_role') and result.get('user_departments') %} &middot; {% endif %}{{ result.get('user_departments', '') }}
+        </div>
+        {% if result.get('user_assigned_room') %}
+        <div style="font-size: 0.8rem; color: #64748b;">Assigned room: {{ result.user_assigned_room }}</div>
         {% endif %}
     </div>
+    <div class="detail-card">
+        <div class="detail-label">Location</div>
+        <div class="detail-value">{{ result.location }}</div>
+    </div>
+    <div class="detail-card">
+        <div class="detail-label">Time</div>
+        <div class="detail-value">{{ result.timestamp }}</div>
+    </div>
+    <div class="detail-card">
+        <div class="detail-label">Classification</div>
+        <div class="detail-value">{% if result.classification %}{{ result.classification }}{% else %}N/A{% endif %}</div>
+    </div>
+
+    {% if result.get('confidence_normal') is not none %}
+    <div class="detail-card full">
+        <div class="detail-label">Confidence Scores</div>
+        <div class="confidence-bar-wrap">
+            <div class="confidence-label">
+                <span>Normal</span>
+                <span>{{ "%.1f"|format(result.confidence_normal) }}%</span>
+            </div>
+            <div class="confidence-track">
+                <div class="confidence-fill normal" style="width: {{ result.confidence_normal }}%"></div>
+            </div>
+        </div>
+        <div class="confidence-bar-wrap" style="margin-top: 0.6rem;">
+            <div class="confidence-label">
+                <span>Suspicious</span>
+                <span>{{ "%.1f"|format(result.confidence_suspicious) }}%</span>
+            </div>
+            <div class="confidence-track">
+                <div class="confidence-fill suspicious" style="width: {{ result.confidence_suspicious }}%"></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if result.get('normal_reasons') is not none or result.get('suspicious_reasons') is not none %}
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; grid-column: 1 / -1;">
+        <div class="detail-card">
+            <div class="detail-label">Normal Indicators</div>
+            {% if result.get('normal_reasons') %}
+            <ul class="reason-list">
+                {% for r in result.normal_reasons %}
+                <li class="reason-item granted"><span class="reason-bullet">&#8594;</span> {{ r }}</li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div style="font-size: 0.85rem; color: #94a3b8; padding: 0.5rem 0;">No normal indicators</div>
+            {% endif %}
+        </div>
+        <div class="detail-card">
+            <div class="detail-label">Suspicious Indicators</div>
+            {% if result.get('suspicious_reasons') %}
+            <ul class="reason-list">
+                {% for r in result.suspicious_reasons %}
+                <li class="reason-item denied"><span class="reason-bullet">&#8594;</span> {{ r }}</li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div style="font-size: 0.85rem; color: #94a3b8; padding: 0.5rem 0;">No suspicious indicators</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 
-<div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+<div class="action-bar">
     <a href="{{ url_for('request_access') }}" class="btn btn-primary">Request Another</a>
     <a href="{{ url_for('dashboard') }}" class="btn" style="background: #64748b; color: #fff;">Dashboard</a>
 </div>

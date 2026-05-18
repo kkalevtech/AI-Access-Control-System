@@ -134,6 +134,11 @@ def request_access():
         else:
             access_time = None
         result = access_controller.request_access(user_id, location, access_time)
+        user_obj = db.get_user(user_id)
+        result['user_name'] = user_obj.name if user_obj else 'Unknown User'
+        result['user_role'] = user_obj.role if user_obj else ''
+        result['user_assigned_room'] = user_obj.assigned_room if user_obj else ''
+        result['user_departments'] = ', '.join(user_obj.departments) if user_obj and user_obj.departments else ''
         return render_template('access_result.html', result=result)
     users = db.get_all_users()
     rooms = db.get_all_rooms()

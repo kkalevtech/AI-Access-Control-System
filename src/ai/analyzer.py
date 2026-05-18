@@ -78,18 +78,16 @@ class BehaviorAnalyzer:
         prediction = self.model.predict([feature_array])[0]
         proba = self.model.predict_proba([feature_array])[0]
 
-        if prediction == 1:
-            classification = "Suspicious"
-            reason = self._generate_reason(features)
-        else:
-            classification = "Normal"
-            reason = "Access pattern appears normal"
+        classification = "Suspicious" if prediction == 1 else "Normal"
+        reason_data = self._generate_reason(features)
 
         return {
             'classification': classification,
             'confidence_normal': proba[0] * 100,
             'confidence_suspicious': proba[1] * 100,
-            'reason': reason,
+            'reason': reason_data['all'],
+            'normal_reasons': reason_data['normal'],
+            'suspicious_reasons': reason_data['suspicious'],
             'user_id': user_id,
             'location': location,
             'timestamp': access_time
@@ -178,25 +176,52 @@ class BehaviorAnalyzer:
             return 0.5
 
     def _generate_reason(self, features):
-        reasons = []
-        if features['user_location_grant_rate'] > 0.7:
-            reasons.append(f"Previously granted (rate: {features['user_location_grant_rate']:.0%})")
-        elif features['user_location_grant_rate'] < 0.3 and features['user_location_grant_rate'] > 0:
-            reasons.append(f"Low historical grant rate ({features['user_location_grant_rate']:.0%})")
-        elif features['user_location_grant_rate'] == 0.5:
-            reasons.append("No prior access history for this location")
-        if features['is_night_access'] == 1:
-            reasons.append("Access during night hours (22:00-06:00)")
-        if features['access_count_last_hour'] > 3:
-            reasons.append(f"High access frequency ({features['access_count_last_hour']} attempts in last hour)")
-        if features['is_assigned_room'] == 0:
-            reasons.append("Not user's assigned room")
-        if features['is_same_department'] == 0:
-            reasons.append("No department authorization for this area")
-        if features['historical_denied_count'] > 5:
-            reasons.append(f"User has {features['historical_denied_count']} historical denied attempts")
+        normal_reasons = []
+        suspicious_reasons = []
 
-        return "; ".join(reasons) if reasons else "Suspicious access pattern detected"
+        if features['user_location_grant_rate'] > 0.7:
+            normal_reasons.append(f"Previously granted at this location (rate: {features['user_location_grant_rate']:.0%})")
+        elif features['user_location_grant_rate'] < 0.3 and features['user_location_grant_rate'] > 0:
+            suspicious_reasons.append(f"Low historical grant rate ({features['user_location_grant_rate']:.0%})")
+        elif features['user_location_grant_rate'] == 0.5:
+            suspicious_reasons.append("No prior access history for this location")
+        elif features['user_location_grant_rate'] > 0.3 and features['user_location_grant_rate'] <= 0.7:
+            suspicious_reasons.append(f"Moderate grant rate ({features['user_location_grant_rate']:.0%}) at this location")
+
+        if features['is_night_access'] == 1:
+            suspicious_reasons.append("Access during night hours (22:00-06:00)")
+        else:
+            normal_reasons.append(f"Access during normal hours ({features['hour']:02d}:00)")
+
+        if features['access_count_last_hour'] > 3:
+            suspicious_reasons.append(f"High access frequency ({features['access_count_last_hour']} attempts in last hour)")
+        elif features['access_count_last_hour'] > 0:
+            normal_reasons.append(f"Moderate access frequency ({features['access_count_last_hour']} attempts in last hour)")
+        else:
+            normal_reasons.append("Low access frequency (no recent attempts)")
+
+        if features['is_assigned_room'] == 1:
+            normal_reasons.append("User is accessing their assigned room")
+        else:
+            suspicious_reasons.append("Not user's assigned room")
+
+        if features['is_same_department'] == 1:
+            normal_reasons.append("Department authorization matches this area")
+        else:
+            suspicious_reasons.append("No department authorization for this area")
+
+        if features['historical_denied_count'] > 5:
+            suspicious_reasons.append(f"User has {features['historical_denied_count']} historical denied attempts")
+        elif features['historical_denied_count'] > 0:
+            suspicious_reasons.append(f"User has {features['historical_denied_count']} historical denied attempts")
+        else:
+            normal_reasons.append("No historical denied attempts")
+
+        return {
+            'normal': normal_reasons,
+            'suspicious': suspicious_reasons,
+            'all': "; ".join(normal_reasons + suspicious_reasons) if normal_reasons or suspicious_reasons else "No unusual patterns detected"
+        }
 
     def train_from_database(self):
         try:
