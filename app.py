@@ -126,18 +126,26 @@ def request_access():
     if request.method == 'POST':
         user_id = int(request.form['user_id'])
         location = request.form['location']
-        access_time = request.form.get('access_time') or None
-        if access_time:
-            access_time += ':00'
+        hour = request.form.get('access_hour')
+        minute = request.form.get('access_minute')
+        second = request.form.get('access_second')
+        if hour and minute and second:
+            access_time = f'{int(hour):02d}:{int(minute):02d}:{int(second):02d}'
+        else:
+            access_time = None
         result = access_controller.request_access(user_id, location, access_time)
         return render_template('access_result.html', result=result)
     users = db.get_all_users()
     rooms = db.get_all_rooms()
     users_json = json.dumps([{'id': u.id, 'name': u.name, 'role': u.role, 'room': u.assigned_room} for u in users])
     rooms_json = json.dumps([{'code': r.room_code, 'dept': r.department_name} for r in rooms])
-    now = datetime.now().strftime('%H:%M')
+    now_dt = datetime.now()
+    now_hour = now_dt.hour
+    now_minute = now_dt.minute
+    now_second = now_dt.second
     return render_template('request_access.html', users=users, rooms=rooms,
-                           users_json=users_json, rooms_json=rooms_json, now=now)
+                           users_json=users_json, rooms_json=rooms_json,
+                           now_hour=now_hour, now_minute=now_minute, now_second=now_second)
 
 
 @app.route('/reset-db', methods=['POST'])

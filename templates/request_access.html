@@ -33,9 +33,27 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="access_time">Time <span class="label-optional">(optional)</span></label>
-                <input type="time" id="access_time" name="access_time" class="form-input"
-                       value="{{ now }}">
+                <label class="form-label">Time <span class="label-optional">(optional)</span></label>
+                <div class="time-select-row">
+                    <select name="access_hour" id="access_hour" class="form-input time-select">
+                        {% for h in range(24) %}
+                        <option value="{{ '%02d'|format(h) }}"{% if h == now_hour %} selected{% endif %}>{{ '%02d'|format(h) }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="time-colon">:</span>
+                    <select name="access_minute" id="access_minute" class="form-input time-select">
+                        {% for m in range(60) %}
+                        <option value="{{ '%02d'|format(m) }}"{% if m == now_minute %} selected{% endif %}>{{ '%02d'|format(m) }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="time-colon">:</span>
+                    <select name="access_second" id="access_second" class="form-input time-select">
+                        {% for s in range(60) %}
+                        <option value="{{ '%02d'|format(s) }}"{% if s == now_second %} selected{% endif %}>{{ '%02d'|format(s) }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" id="nowBtn" class="btn btn-sm btn-now">Now</button>
+                </div>
             </div>
 
             <button type="submit" class="btn btn-primary btn-submit">Submit Request</button>
@@ -242,6 +260,53 @@
     font-size: 0.8rem;
 }
 
+.time-select-row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.time-select {
+    flex: 1;
+    text-align: center;
+    -moz-appearance: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+.time-select::-ms-expand {
+    display: none;
+}
+
+.time-colon {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #64748b;
+    padding: 0 0.15rem;
+}
+
+.btn-now {
+    margin-left: 0.5rem;
+}
+
+.btn-sm {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    border: 1px solid #d1d5db;
+    background: #f8fafc;
+    color: #475569;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-sm:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+
 .btn-submit {
     width: 100%;
     padding: 0.85rem;
@@ -387,6 +452,13 @@
 
     userInput.addEventListener('input', function() {
         userId.value = '';
+    });
+
+    document.getElementById('nowBtn').addEventListener('click', function() {
+        var d = new Date();
+        document.getElementById('access_hour').value = String(d.getHours()).padStart(2, '0');
+        document.getElementById('access_minute').value = String(d.getMinutes()).padStart(2, '0');
+        document.getElementById('access_second').value = String(d.getSeconds()).padStart(2, '0');
     });
 
     document.getElementById('accessForm').addEventListener('submit', function(e) {
