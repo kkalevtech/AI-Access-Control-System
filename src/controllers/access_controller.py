@@ -38,43 +38,96 @@ class AccessController:
             analysis = self.analyzer.analyze(user_id, access_time, location, is_weekend)
 
             if 'error' in analysis:
-                return self._process_basic_access(user, location, access_time, is_weekend)
+                return self._process_request(user, location, access_time, is_weekend)
 
             classification = analysis['classification']
             confidence_suspicious = analysis.get('confidence_suspicious', 0)
 
             if classification == "Suspicious":
+                reason = analysis.get('reason', 'Suspicious behavior detected')
                 self.event_dispatcher.dispatch_event('on_suspicious_behavior', SuspiciousBehaviorEventArgs(
                     user_id=user_id,
                     score=confidence_suspicious,
-                    reason=analysis.get('reason', 'Suspicious behavior detected'),
+                    reason=reason,
                     timestamp=access_time
                 ))
-                deny_result = self.deny_access(
-                    user_id, location, analysis.get('reason', 'Suspicious behavior detected'),
-                    access_time, is_weekend
-                )
-                deny_result['classification'] = classification
-                deny_result['confidence_normal'] = analysis.get('confidence_normal', 0)
-                deny_result['confidence_suspicious'] = confidence_suspicious
-                return deny_result
+                self.event_dispatcher.dispatch_event('on_access_denied', AccessEventArgs(
+                    user_id=user_id,
+                    location=location,
+                    reason=reason,
+                    timestamp=access_time
+                ))
+                return {
+                    'granted': False,
+                    'classification': classification,
+                    'confidence_normal': analysis.get('confidence_normal', 0),
+                    'confidence_suspicious': confidence_suspicious,
+                    'reason': reason,
+                    'user_id': user_id,
+                    'location': location,
+                    'timestamp': access_time,
+                    'is_weekend': is_weekend
+                }
 
-            return self.grant_access_with_analysis(user_id, location, access_time, analysis, is_weekend)
+            return {
+                'granted': True,
+                'classification': classification,
+                'confidence_normal': analysis.get('confidence_normal', 0),
+                'confidence_suspicious': confidence_suspicious,
+                'reason': analysis.get('reason', 'Access granted'),
+                'user_id': user_id,
+                'location': location,
+                'timestamp': access_time,
+                'is_weekend': is_weekend
+            }
         else:
-            return self._process_basic_access(user, location, access_time, is_weekend)
+            return self._process_request(user, location, access_time, is_weekend)
 
-    def _process_basic_access(self, user, location, access_time, is_weekend=0):
+    def _process_request(self, user, location, access_time, is_weekend=0):
         if user.assigned_room and location == user.assigned_room:
-            return self.grant_access(user_id=user.id, location=location, access_time=access_time, is_weekend=is_weekend)
+            return {
+                'granted': True,
+                'classification': 'Normal',
+                'confidence_normal': 100,
+                'confidence_suspicious': 0,
+                'reason': 'Access granted',
+                'user_id': user.id,
+                'location': location,
+                'timestamp': access_time,
+                'is_weekend': is_weekend
+            }
 
         if user.departments:
             loc_prefix = location.split('-')[0] if '-' in location else location
             loc_dept = DEPT_PREFIX_MAP.get(loc_prefix, '')
             if loc_dept in user.departments:
-                return self.grant_access(user_id=user.id, location=location, access_time=access_time, is_weekend=is_weekend)
+                return {
+                    'granted': True,
+                    'classification': 'Normal',
+                    'confidence_normal': 100,
+                    'confidence_suspicious': 0,
+                    'reason': 'Access granted',
+                    'user_id': user.id,
+                    'location': location,
+                    'timestamp': access_time,
+                    'is_weekend': is_weekend
+                }
 
         reason = f"Location {location} not authorized for user"
-        return self.deny_access(user_id=user.id, location=location, reason=reason, access_time=access_time, is_weekend=is_weekend)
+        self.event_dispatcher.dispatch_event('on_access_denied', AccessEventArgs(
+            user_id=user.id,
+            location=location,
+            reason=reason,
+            timestamp=access_time
+        ))
+        return {
+            'granted': False,
+            'reason': reason,
+            'user_id': user.id,
+            'location': location,
+            'timestamp': access_time,
+            'is_weekend': is_weekend
+        }
 
     def grant_access_with_analysis(self, user_id, location, access_time, analysis, is_weekend=0):
         log = AccessLog(
