@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, cross_val_score
 import pickle
 import os
 
@@ -60,6 +61,15 @@ class BehaviorAnalyzer:
             'user_location_grant_rate': user_location_grant_rate
         }
 
+    @staticmethod
+    def _training_feature_vector(features):
+        return [
+            features['hour'], features['minute'], features['day_of_week'],
+            features['is_weekend'], features['access_count_last_hour'],
+            features['user_access_level'], features['historical_denied_count'],
+            features['is_night_access'], features['user_location_grant_rate']
+        ]
+
     def analyze(self, user_id, access_time, location, is_weekend=0):
         if not self.is_trained:
             return {
@@ -67,13 +77,7 @@ class BehaviorAnalyzer:
             }
 
         features = self.extract_features(user_id, access_time, location, is_weekend)
-        feature_array = [
-            features['hour'], features['minute'], features['day_of_week'],
-            features['is_weekend'], features['access_count_last_hour'],
-            features['is_assigned_room'], features['is_same_department'],
-            features['user_access_level'], features['historical_denied_count'],
-            features['is_night_access'], features['user_location_grant_rate']
-        ]
+        feature_array = self._training_feature_vector(features)
 
         prediction = self.model.predict([feature_array])[0]
         proba = self.model.predict_proba([feature_array])[0]
@@ -94,13 +98,7 @@ class BehaviorAnalyzer:
         }
 
     def get_prediction_confidence(self, features):
-        feature_array = [
-            features['hour'], features['minute'], features['day_of_week'],
-            features['is_weekend'], features['access_count_last_hour'],
-            features['is_assigned_room'], features['is_same_department'],
-            features['user_access_level'], features['historical_denied_count'],
-            features['is_night_access'], features['user_location_grant_rate']
-        ]
+        feature_array = self._training_feature_vector(features)
         proba = self.model.predict_proba([feature_array])[0]
         return {
             'normal_prob': proba[0],
@@ -242,13 +240,7 @@ class BehaviorAnalyzer:
 
                     is_suspicious = 1 if log.status == 'denied' else 0
 
-                    X.append([
-                        features['hour'], features['minute'], features['day_of_week'],
-                        features['is_weekend'], features['access_count_last_hour'],
-                        features['is_assigned_room'], features['is_same_department'],
-                        features['user_access_level'], features['historical_denied_count'],
-                        features['is_night_access'], features['user_location_grant_rate']
-                    ])
+                    X.append(self._training_feature_vector(features))
                     y.append(is_suspicious)
                 except Exception:
                     continue
@@ -256,13 +248,26 @@ class BehaviorAnalyzer:
             if len(X) < 30:
                 return {'error': 'Insufficient valid samples for training.'}
 
-            self.model.fit(X, y)
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=42, stratify=y
+            )
+
+            self.model.fit(X_train, y_train)
             self.is_trained = True
 
-            accuracy = self.model.score(X, y)
+            train_acc = self.model.score(X_train, y_train)
+            test_acc = self.model.score(X_test, y_test)
+
+            cv_scores = cross_val_score(self.model, X, y, cv=5)
+            cv_mean = cv_scores.mean()
+
             return {
                 'num_samples': len(X),
-                'accuracy': accuracy
+                'test_accuracy': test_acc,
+                'train_accuracy': train_acc,
+                'cross_val_accuracy': cv_mean,
+                'test_samples': len(X_test),
+                'train_samples': len(X_train)
             }
         except Exception as e:
             return {'error': str(e)}
