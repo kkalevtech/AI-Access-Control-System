@@ -22,7 +22,7 @@ def _build_log(user_id, time_str, is_weekend, location, status):
     )
 
 
-def generate_messy_data(db_path="access_control.db", db=None):
+def generate_messy_data(db_path="data/access_control.db", db=None):
     _external_db = db is not None
     if db is None:
         import os
@@ -630,4 +630,4 @@ def generate_messy_data(db_path="access_control.db", db=None):
 
 
 if __name__ == "__main__":
-    generate_messy_data("access_control.db")
+    generate_messy_data("data/access_control.db")

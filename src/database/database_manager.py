@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from src.models import User, AccessLog, Department, Room
 
@@ -17,12 +18,15 @@ class DatabaseManager:
 
     DEPARTMENTS = ['Finance', 'HR', 'IT', 'Marketing', 'Operations']
 
-    def __init__(self, db_path="access_control.db"):
+    def __init__(self, db_path="data/access_control.db"):
         self.db_path = db_path
         self.connection = None
         self.connect()
 
     def connect(self):
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
         self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA foreign_keys = ON")

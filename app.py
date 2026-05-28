@@ -9,7 +9,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-db = DatabaseManager("access_control.db")
+db = DatabaseManager("data/access_control.db")
 db.init_db()
 
 needs_seed = True
@@ -24,7 +24,7 @@ except Exception:
 if needs_seed:
     print("Generating seed data...")
     from src.seed_data import generate_messy_data
-    generate_messy_data("access_control.db", db=db)
+    generate_messy_data("data/access_control.db", db=db)
 
 dispatcher = EventDispatcher()
 analyzer = BehaviorAnalyzer(db)
@@ -165,7 +165,7 @@ def reset_db():
     db.connection.commit()
     
     from src.seed_data import generate_messy_data
-    generate_messy_data("access_control.db", db=db)
+    generate_messy_data("data/access_control.db", db=db)
     
     result = analyzer.retrain()
     
