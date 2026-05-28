@@ -26,12 +26,7 @@
 </div>
 
 <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h2 style="font-size: 1.25rem;">Recent Access Activity</h2>
-        <form method="post" action="{{ url_for('reset_db') }}" id="resetForm">
-            <button type="submit" class="btn btn-danger" onclick="resetDb(event)">Reset Database</button>
-        </form>
-    </div>
+    <h2 style="font-size: 1.25rem; margin-bottom: 1rem;">Recent Access Activity</h2>
     <table>
         <thead>
             <tr>
@@ -53,24 +48,4 @@
         </tbody>
     </table>
 </div>
-
-<script>
-async function resetDb(e) {
-    e.preventDefault();
-    if (!confirm('Reset database with new random data?')) return;
-    
-    const form = document.getElementById('resetForm');
-    const fd = new FormData(form);
-    
-    try {
-        const resp = await fetch('/reset-db', { method: 'POST', body: fd });
-        const data = await resp.json();
-        if (data.status === 'success') {
-            location.reload();
-        }
-    } catch(err) {
-        alert('Error: ' + err);
-    }
-}
-</script>
 {% endblock %}
