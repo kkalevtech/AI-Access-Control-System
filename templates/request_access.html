@@ -1,0 +1,479 @@
+{% extends "base.html" %}
+{% block title %}Request Access - AI Access Control{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Request Access</h1>
+</div>
+
+<div class="request-layout">
+    <div class="request-card">
+        <div class="request-card-header">
+            <span class="request-card-title">Access Request Form</span>
+        </div>
+        <form method="post" action="{{ url_for('request_access') }}" id="accessForm" novalidate>
+            <div class="form-group">
+                <label class="form-label" for="user_input">User</label>
+                <div class="combo-wrap">
+                    <input type="text" id="user_input" class="form-input combo-input"
+                           placeholder="Search users..." autocomplete="off" required>
+                    <input type="hidden" name="user_id" id="user_id" value="">
+                    <ul class="combo-list" id="user_list"></ul>
+                </div>
+                <small id="user_error" class="field-error">Select a valid user from the list</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="loc_input">Location</label>
+                <div class="combo-wrap">
+                    <input type="text" id="loc_input" name="location" class="form-input combo-input"
+                           placeholder="Search locations..." autocomplete="off" required>
+                    <ul class="combo-list" id="loc_list"></ul>
+                </div>
+                <small id="loc_error" class="field-error">Select a valid location from the list</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Time <span class="label-optional">(optional)</span></label>
+                <div class="time-select-row">
+                    <select name="access_hour" id="access_hour" class="form-input time-select">
+                        {% for h in range(24) %}
+                        <option value="{{ '%02d'|format(h) }}"{% if h == now_hour %} selected{% endif %}>{{ '%02d'|format(h) }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="time-colon">:</span>
+                    <select name="access_minute" id="access_minute" class="form-input time-select">
+                        {% for m in range(60) %}
+                        <option value="{{ '%02d'|format(m) }}"{% if m == now_minute %} selected{% endif %}>{{ '%02d'|format(m) }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="time-colon">:</span>
+                    <select name="access_second" id="access_second" class="form-input time-select">
+                        {% for s in range(60) %}
+                        <option value="{{ '%02d'|format(s) }}"{% if s == now_second %} selected{% endif %}>{{ '%02d'|format(s) }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" id="nowBtn" class="btn btn-sm btn-now">Now</button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-submit">Submit Request</button>
+        </form>
+    </div>
+
+    <div class="info-card">
+        <div class="info-card-header">
+            <span class="info-card-title">How It Works</span>
+        </div>
+        <ul class="info-list">
+            <li class="info-item">
+                <span class="info-badge">1</span>
+                <span>Select a user from the dropdown</span>
+            </li>
+            <li class="info-item">
+                <span class="info-badge">2</span>
+                <span>Choose the room location</span>
+            </li>
+            <li class="info-item">
+                <span class="info-badge">3</span>
+                <span>Submit to evaluate access</span>
+            </li>
+        </ul>
+        <div class="info-divider"></div>
+        <div class="info-footnote">
+            The system checks access level permissions, flags suspicious behavior, and runs ML analysis to classify the attempt.
+        </div>
+    </div>
+</div>
+
+<style>
+.request-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.request-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.request-card-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.request-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.request-card form {
+    padding: 2rem;
+}
+
+.info-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.info-card-header {
+    padding: 1.5rem 1.5rem 0 1.5rem;
+}
+
+.info-card-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.info-list {
+    list-style: none;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    color: #475569;
+    line-height: 1.4;
+}
+
+.info-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.info-divider {
+    height: 1px;
+    background: #f1f5f9;
+    margin: 0 1.5rem;
+}
+
+.info-footnote {
+    padding: 1rem 1.5rem 1.5rem 1.5rem;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    line-height: 1.5;
+}
+
+.combo-wrap {
+    position: relative;
+}
+
+.combo-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    z-index: 999;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: none;
+}
+
+.combo-list li {
+    padding: 0.6rem 0.85rem;
+    cursor: default;
+    font-size: 0.875rem;
+    color: #1e293b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.combo-list li .dept-tag {
+    font-size: 0.7rem;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-left: 0.5rem;
+    flex-shrink: 0;
+}
+
+.combo-list li .user-meta {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.combo-list li.active {
+    background: #eff6ff;
+}
+
+.combo-list li.no-match {
+    color: #94a3b8;
+    font-style: italic;
+    justify-content: center;
+}
+
+.combo-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.combo-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.combo-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.field-error {
+    display: none;
+    color: #dc2626;
+    font-size: 0.8rem;
+    margin-top: 0.35rem;
+}
+
+.label-optional {
+    font-weight: 400;
+    color: #94a3b8;
+    font-size: 0.8rem;
+}
+
+.time-select-row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.time-select {
+    flex: 1;
+    text-align: center;
+    -moz-appearance: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+.time-select::-ms-expand {
+    display: none;
+}
+
+.time-colon {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #64748b;
+    padding: 0 0.15rem;
+}
+
+.btn-now {
+    margin-left: 0.5rem;
+}
+
+.btn-sm {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    border: 1px solid #d1d5db;
+    background: #f8fafc;
+    color: #475569;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-sm:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+
+.btn-submit {
+    width: 100%;
+    padding: 0.85rem;
+    font-size: 0.95rem;
+    margin-top: 0.5rem;
+    transition: background 0.15s;
+}
+
+@media (max-width: 768px) {
+    .request-layout {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script id="users-data" type="application/json">{{ users_json | safe }}</script>
+<script id="rooms-data" type="application/json">{{ rooms_json | safe }}</script>
+<script>
+(function() {
+    var userData = JSON.parse(document.getElementById('users-data').textContent);
+    var roomData = JSON.parse(document.getElementById('rooms-data').textContent);
+
+    var userLookup = {};
+    for (var i = 0; i < userData.length; i++) {
+        userLookup[userData[i].name] = userData[i].id;
+    }
+    var locLookup = {};
+    for (var i = 0; i < roomData.length; i++) {
+        locLookup[roomData[i].code] = roomData[i].code;
+    }
+
+    function buildUserList(filter) {
+        var el = document.getElementById('user_list');
+        filter = (filter || '').toLowerCase();
+        var html = '';
+        var count = 0;
+        for (var i = 0; i < userData.length; i++) {
+            var u = userData[i];
+            if (u.name.toLowerCase().indexOf(filter) !== -1) {
+                var meta = u.role + (u.room ? ' - ' + u.room : '');
+                html += '<li data-id="' + u.id + '" data-label="' + u.name.replace(/"/g, '&quot;') + '"><span>' + u.name + '</span><span class="user-meta">' + meta + '</span></li>';
+                count++;
+            }
+        }
+        if (!count) html = '<li class="no-match">No matching users</li>';
+        el.innerHTML = html;
+    }
+
+    function buildLocList(filter) {
+        var el = document.getElementById('loc_list');
+        filter = (filter || '').toLowerCase();
+        var html = '';
+        var count = 0;
+        for (var i = 0; i < roomData.length; i++) {
+            if (roomData[i].code.toLowerCase().indexOf(filter) !== -1 ||
+                roomData[i].dept.toLowerCase().indexOf(filter) !== -1) {
+                html += '<li data-code="' + roomData[i].code.replace(/"/g, '&quot;') + '"><span>' + roomData[i].code + '</span><span class="dept-tag">' + roomData[i].dept + '</span></li>';
+                count++;
+            }
+        }
+        if (!count) html = '<li class="no-match">No matching locations</li>';
+        el.innerHTML = html;
+    }
+
+    function openOnFocus(input, list, build) {
+        var hideTimer = null;
+        input.addEventListener('focus', function() {
+            clearTimeout(hideTimer);
+            build(input.value);
+            list.style.display = 'block';
+        });
+        input.addEventListener('blur', function() {
+            hideTimer = setTimeout(function() { list.style.display = 'none'; }, 180);
+        });
+        input.addEventListener('input', function() {
+            build(input.value);
+            list.style.display = 'block';
+        });
+        input.addEventListener('keydown', function(e) {
+            var items = list.querySelectorAll('li:not(.no-match)');
+            var idx = -1;
+            for (var j = 0; j < items.length; j++) {
+                if (items[j].classList.contains('active')) { idx = j; break; }
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!items.length) return;
+                for (var j = 0; j < items.length; j++) items[j].classList.remove('active');
+                var next = (idx + 1) % items.length;
+                items[next].classList.add('active');
+                items[next].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!items.length) return;
+                for (var j = 0; j < items.length; j++) items[j].classList.remove('active');
+                var prev = (idx - 1 + items.length) % items.length;
+                items[prev].classList.add('active');
+                items[prev].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+                var active = list.querySelector('li.active');
+                if (active) {
+                    e.preventDefault();
+                    active.click();
+                }
+            } else if (e.key === 'Escape') {
+                list.style.display = 'none';
+            }
+        });
+    }
+
+    var userInput = document.getElementById('user_input');
+    var userId = document.getElementById('user_id');
+    var userList = document.getElementById('user_list');
+    var userError = document.getElementById('user_error');
+
+    var locInput = document.getElementById('loc_input');
+    var locList = document.getElementById('loc_list');
+    var locError = document.getElementById('loc_error');
+
+    userList.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        var li = e.target.closest('li');
+        if (!li || li.classList.contains('no-match')) return;
+        userInput.value = li.getAttribute('data-label');
+        userId.value = li.getAttribute('data-id');
+        userError.style.display = 'none';
+        userInput.setCustomValidity('');
+        userList.style.display = 'none';
+    });
+
+    locList.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        var li = e.target.closest('li');
+        if (!li || li.classList.contains('no-match')) return;
+        locInput.value = li.getAttribute('data-code');
+        locError.style.display = 'none';
+        locInput.setCustomValidity('');
+        locList.style.display = 'none';
+    });
+
+    openOnFocus(userInput, userList, buildUserList);
+    openOnFocus(locInput, locList, buildLocList);
+
+    userInput.addEventListener('input', function() {
+        userId.value = '';
+    });
+
+    document.getElementById('nowBtn').addEventListener('click', function() {
+        var d = new Date();
+        document.getElementById('access_hour').value = String(d.getHours()).padStart(2, '0');
+        document.getElementById('access_minute').value = String(d.getMinutes()).padStart(2, '0');
+        document.getElementById('access_second').value = String(d.getSeconds()).padStart(2, '0');
+    });
+
+    document.getElementById('accessForm').addEventListener('submit', function(e) {
+        var userOk = Object.prototype.hasOwnProperty.call(userLookup, userInput.value);
+        var locOk = Object.prototype.hasOwnProperty.call(locLookup, locInput.value);
+        if (!userOk) {
+            e.preventDefault();
+            userId.value = '';
+            userError.style.display = 'block';
+        }
+        if (!locOk) {
+            e.preventDefault();
+            locError.style.display = 'block';
+        }
+    });
+})();
+</script>
+{% endblock %}

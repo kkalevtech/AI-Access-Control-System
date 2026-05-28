@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Users - AI Access Control{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Users</h1>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Departments</th>
+                <th>Access Level</th>
+                <th>Assigned Room</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr id="user-{{ user.id }}"{% if highlight == user.id %} class="highlighted"{% endif %}>
+                <td>{{ user.name }}</td>
+                <td>{{ user.role }}</td>
+                <td>{{ user.departments | join(', ') }}</td>
+                <td>{{ user.access_level }}</td>
+                <td>{{ user.assigned_room or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+(function() {
+    var el = document.getElementById('user-{{ highlight }}');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+})();
+</script>
+<style>
+tr.highlighted {
+    background: #eff6ff;
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+}
+tr.highlighted td:first-child {
+    font-weight: 700;
+    color: #1e40af;
+}
+</style>
+{% endblock %}

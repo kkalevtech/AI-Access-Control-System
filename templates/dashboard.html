@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - AI Access Control{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Users</div>
+        <div class="stat-value">{{ total_users }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Access Logs</div>
+        <div class="stat-value">{{ total_logs }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Granted</div>
+        <div class="stat-value success">{{ granted }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Denied</div>
+        <div class="stat-value danger">{{ denied }}</div>
+    </div>
+
+</div>
+
+<div class="card">
+    <h2 style="font-size: 1.25rem; margin-bottom: 1rem;">Recent Access Activity</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>User ID</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in recent %}
+            <tr>
+                <td>{{ log.user_id }}</td>
+                <td>{{ log.location }}</td>
+                <td><span class="status-badge status-{{ log.status }}">{{ log.status }}</span></td>
+                <td>{{ log.access_time }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
